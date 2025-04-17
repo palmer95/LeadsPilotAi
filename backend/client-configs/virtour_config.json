@@ -1,0 +1,49 @@
+{
+  "business_name": "Virtour Media",
+  "business_type": "photography",
+  "location": "Santa Barbara, CA",
+  "description": "Virtour Media offers high-end real estate media including photography, Matterport 3D tours, aerial footage, and virtual staging. Fast turnaround. Professional team. Trusted locally.",
+
+  "sales_triggers": [
+    "book a shoot",
+    "schedule a tour",
+    "real estate package",
+    "photo session",
+    "quote",
+    "interested in a shoot",
+    "I want to book"
+  ],
+
+  "qualifying_questions": [
+    "What type of shoot are you looking for? (e.g. real estate, business, Airbnb)",
+    "Where is the property located?",
+    "How many square feet is the space?",
+    "When are you hoping to schedule it?"
+  ],
+
+  "packages": [
+    {
+      "name": "Standard Package",
+      "description": "HDR and or flambient photography covering the entire inside/outside with exterior aerial photos. Always delivered next day.",
+      "price": "Starting at $549",
+      "features": ["High-res photography", "Aerial drone photos"]
+    },
+    {
+      "name": "MLS Package",
+      "description": "We call this, 'The Make-It-Easy'. A great solution where prospective buyers can easily tour your listing anytime, from anywhere.",
+      "price": "Starting at $1549",
+      "features": [
+        "High-res photography",
+        "Aerial drone shots",
+        "Matterport 3D Tour",
+        "Basic Floor Plan"
+      ]
+    }
+  ],
+
+  "booking_trigger": {
+    "send_discord": true,
+    "send_sms": true,
+    "send_email": true
+  }
+}
