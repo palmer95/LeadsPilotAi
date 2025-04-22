@@ -83,8 +83,8 @@ This is an **early-stage private MVP**, actively in development.
 
 ---
 
-## 📬 Want to use PromptlyAI on your website?
+## 📬 Want to use LeadsPilotAi on your website?
 
 We're currently onboarding early clients.  
-Email us at **sales@leadspilotai.com** or join the waitlist [coming soon].
+Email us at **hello@leadspilotai.com** or join the waitlist [coming soon].
 
