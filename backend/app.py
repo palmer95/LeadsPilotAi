@@ -74,7 +74,7 @@ User said:
 Respond as Clyde.
             '''
             fallback = gpt_direct.invoke(fallback_prompt)
-            response_text = "GPT: " + fallback.content
+            response_text = fallback.content
 
         return jsonify({ "response": response_text })
 
