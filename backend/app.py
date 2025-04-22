@@ -54,7 +54,8 @@ def chat():
             "i do not have that information",
             "i don't have specific information",
             "i don't have that info",
-            "i don't know"
+            "i don't know",
+            "i'm sorry"
         ]
 
         if (not response_text.strip() or any(phrase in response_text.lower() for phrase in fallback_phrases)):
