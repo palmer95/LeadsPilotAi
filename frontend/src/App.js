@@ -1,3 +1,4 @@
+// App.js
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import "./App.css";
@@ -38,9 +39,12 @@ function App() {
     setLoading(true);
 
     try {
-      const res = await axios.post("http://localhost:5050/api/chat", { query });
+      const res = await axios.post(
+        "https://leadspilotai.onrender.com/api/chat",
+        { query }
+      );
       newMessage.bot = res.data.response;
-    } catch (err) {
+    } catch {
       newMessage.bot = "Something went wrong!";
     }
 
@@ -58,11 +62,10 @@ function App() {
     setMessages([]);
     setQuery("");
     try {
-      await axios.post("http://localhost:5050/api/reset");
+      await axios.post("https://leadspilotai.onrender.com/api/reset");
     } catch (err) {
       console.error("Reset failed", err);
     }
-
     setTimeout(() => {
       const welcome = {
         user: "",
@@ -99,9 +102,9 @@ function App() {
           <>
             <div className="faq-divider">Try a common question:</div>
             <div className="faq-buttons">
-              {faqs.map((q, i) => (
+              {faqs.map((q, idx) => (
                 <button
-                  key={i}
+                  key={idx}
                   onClick={() => handleFAQClick(q)}
                   className="faq-button"
                 >
@@ -115,16 +118,23 @@ function App() {
 
       <form onSubmit={handleSubmit} className="chat-form">
         <input
+          className="chat-input"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Ask something..."
         />
-        <button type="submit" disabled={!query.trim() || loading}>
-          Send
-        </button>
-        <button type="button" onClick={handleReset}>
-          Reset Chat
-        </button>
+
+        <div className="chat-form-buttons">
+          <button type="submit" disabled={!query.trim() || loading}>
+            Send
+          </button>
+          <button type="button" onClick={handleReset}>
+            Reset Chat
+          </button>
+        </div>
+
+        {/* subtle branding below buttons */}
+        <div className="branding">Powered by LeadsPilotAi</div>
       </form>
     </div>
   );

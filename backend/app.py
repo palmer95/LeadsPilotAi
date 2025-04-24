@@ -8,11 +8,12 @@ from langchain_community.vectorstores import FAISS
 import json
 import sales_agent
 from dotenv import load_dotenv
+import os
 
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}}, supports_credentials=True)
+CORS(app, resources={r"/api/*": {"origins": "https://leadspilotai.onrender.com"}}, supports_credentials=True)
 
 embeddings = OpenAIEmbeddings()
 vectorstore = FAISS.load_local("virtour_vectorstore", OpenAIEmbeddings(), allow_dangerous_deserialization=True)
@@ -20,14 +21,17 @@ llm = ChatOpenAI(temperature=0.3, model="gpt-3.5-turbo")
 memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 qa = ConversationalRetrievalChain.from_llm(llm=llm, retriever=vectorstore.as_retriever(), memory=memory)
 
-with open("client-configs/virtour_config.json") as f:
+# assume this file is in backend/, so go up one level then into client-configs
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "client-configs", "virtour_config.json")
+
+with open(CONFIG_PATH) as f:
     CONFIG = json.load(f)
 
 @app.route('/api/chat', methods=['POST', 'OPTIONS'])
 def chat():
     if request.method == 'OPTIONS':
         response = app.make_response('')
-        response.headers['Access-Control-Allow-Origin'] = 'http://localhost:3000'
+        response.headers['Access-Control-Allow-Origin'] = 'https://leadspilotai.onrender.com'
         response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
         return response
