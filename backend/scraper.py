@@ -22,13 +22,9 @@ def scrape_url(url):
     return soup.get_text(separator="\n")
 
 urls = [
-    "https://virtourmedia.com/",
-    "https://virtourmedia.com/how-it-works/",
-    "https://virtourmedia.com/services/",
-    "https://virtourmedia.com/industries/",
-    "https://virtourmedia.com/blog/",
-    "https://virtourmedia.com/contact/",
-    "https://agent.virtourmedia.com/order"
+    "https://www.leadspilotai.com/",
+    "https://www.leadspilotai.com/product",
+    "https://www.leadspilotai.com/pricing",
 ]
 
 all_text = ""
@@ -38,7 +34,7 @@ for url in urls:
     content = scrape_url(url)
     all_text += f"\n\n# {url}\n\n" + content
 
-with open("virtour_content.txt", "w") as f:
+with open("leadspilotai_content.txt", "w") as f:
     f.write(all_text)
 
 print("✅ Scraping complete.")

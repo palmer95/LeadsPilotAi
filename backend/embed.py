@@ -10,7 +10,7 @@ load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
 # Read the scraped content
-with open("virtour_content.txt", "r") as f:
+with open("leadspilotai_content.txt", "r") as f:
     raw_text = f.read()
 
 # Split the text into smaller chunks (for easier processing by the AI)
@@ -24,6 +24,6 @@ embedding = OpenAIEmbeddings(openai_api_key=openai_api_key)
 vectorstore = FAISS.from_texts(chunks, embedding)
 
 # Save the FAISS vectorstore for later use
-vectorstore.save_local("virtour_vectorstore")
+vectorstore.save_local("leadspilotai_vectorstore")
 
 print(f"✅ {len(chunks)} chunks embedded and saved to vectorstore.")
