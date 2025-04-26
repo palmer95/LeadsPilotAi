@@ -1,20 +1,40 @@
-// App.js
+// src/App.js
+
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import "./App.css";
 
-function App() {
+// ─── Your real chat API ─────────────────────────────────────────────────────
+const API_BASE_URL = "https://leadspilotai.onrender.com";
+
+export default function App({ company, configUrl }) {
+  const [config, setConfig] = useState(null);
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const chatBoxRef = useRef(null);
 
-  const faqs = [
-    "What is your lead time?",
-    "How much do your packages cost?",
-    "What’s the process to book a shoot, and what details do you need from me?",
-  ];
+  // 1️⃣ Load the JSON from your public/client-configs folder
+  useEffect(() => {
+    if (!company) return;
+    (async () => {
+      try {
+        const res = await fetch(`${configUrl}/client-configs/${company}.json`);
+        if (!res.ok) throw new Error(res.statusText);
+        setConfig(await res.json());
+      } catch (err) {
+        console.error("Failed to load client config:", err);
+      }
+    })();
+  }, [company, configUrl]);
 
+  // 2️⃣ Seed welcome once config arrives
+  useEffect(() => {
+    if (!config) return;
+    setMessages([{ user: "", bot: config.welcome }]);
+  }, [config]);
+
+  // 3️⃣ Scroll on new messages
   useEffect(() => {
     chatBoxRef.current?.scrollTo({
       top: chatBoxRef.current.scrollHeight,
@@ -22,62 +42,67 @@ function App() {
     });
   }, [messages]);
 
-  useEffect(() => {
-    const welcome = {
-      user: "",
-      bot: "Hi! I’m Clyde 🤓\n\nI can answer questions about services and pricing, curate marketing packages based on your needs, and even book appointments with our team.\n\nPick from a FAQ below or type a message to get started.",
-    };
-    setMessages([welcome]);
-  }, []);
-
+  // 4️⃣ Send a message to your Flask /api/chat
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!query.trim()) return;
+    if (!query.trim() || !config) return;
 
-    const newMessage = { user: query, bot: "..." };
-    setMessages((prev) => [...prev, newMessage]);
+    setMessages((m) => [...m, { user: query, bot: "…" }]);
     setLoading(true);
 
     try {
-      const res = await axios.post(
-        "https://leadspilotai.onrender.com/api/chat",
-        { query }
-      );
-      newMessage.bot = res.data.response;
-    } catch {
-      newMessage.bot = "Something went wrong!";
+      const res = await axios.post(`${API_BASE_URL}/api/chat`, {
+        query,
+        company,
+      });
+      setMessages((m) => {
+        const last = m[m.length - 1];
+        last.bot = res.data.response;
+        return [...m.slice(0, -1), last];
+      });
+    } catch (err) {
+      console.error("Chat error:", err);
+      setMessages((m) => {
+        const last = m[m.length - 1];
+        last.bot = "Something went wrong!";
+        return [...m.slice(0, -1), last];
+      });
     }
 
-    setMessages((prev) => [...prev.slice(0, -1), newMessage]);
     setQuery("");
     setLoading(false);
   };
 
+  // 5️⃣ FAQ buttons still driven by config.faqs
   const handleFAQClick = (faq) => {
     setQuery(faq);
     setTimeout(() => document.querySelector("form").requestSubmit(), 50);
   };
 
+  // 6️⃣ Reset both UI and server-side state
   const handleReset = async () => {
     setMessages([]);
     setQuery("");
+
     try {
-      await axios.post("https://leadspilotai.onrender.com/api/reset");
+      await axios.post(`${API_BASE_URL}/api/reset`);
     } catch (err) {
-      console.error("Reset failed", err);
+      console.error("Reset failed:", err);
     }
-    setTimeout(() => {
-      const welcome = {
-        user: "",
-        bot: "Hi! I’m Clyde 🤓\n\nI can answer questions about services and pricing, curate marketing packages based on your needs, and even book appointments with our team.\n\nPick from a FAQ below or type a message to get started.",
-      };
-      setMessages([welcome]);
-    }, 200);
+
+    // re-seed the welcome after a short delay
+    setTimeout(() => setMessages([{ user: "", bot: config.welcome }]), 200);
   };
 
+  // 7️⃣ Loading state
+  if (!config) {
+    return <div className="chat-container">Loading…</div>;
+  }
+
+  // ─── Render the chat UI ────────────────────────────────────────────────────
   return (
     <div className="chat-container">
-      <h2>Virtour Chat</h2>
+      <h2>{config.business_name} Chat</h2>
 
       <div className="chat-box" ref={chatBoxRef}>
         {messages.map((m, i) => (
@@ -89,20 +114,20 @@ function App() {
             )}
             {m.bot && (
               <div className="bot-msg">
-                <strong>Clyde:</strong> {m.bot}
+                <strong>{config.business_name}:</strong> {m.bot}
               </div>
             )}
             <hr />
           </div>
         ))}
 
-        {loading && <div className="loading">Bot is typing...</div>}
+        {loading && <div className="loading">Bot is typing…</div>}
 
         {messages.length === 1 && (
           <>
             <div className="faq-divider">Try a common question:</div>
             <div className="faq-buttons">
-              {faqs.map((q, idx) => (
+              {config.faqs.map((q, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleFAQClick(q)}
@@ -121,23 +146,20 @@ function App() {
           className="chat-input"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask something..."
+          placeholder="Ask something…"
         />
 
         <div className="chat-form-buttons">
           <button type="submit" disabled={!query.trim() || loading}>
             Send
           </button>
-          <button type="button" onClick={handleReset}>
+          <button type="button" onClick={handleReset} disabled={loading}>
             Reset Chat
           </button>
         </div>
 
-        {/* subtle branding below buttons */}
-        <div className="branding">Powered by LeadsPilotAi</div>
+        <div className="branding">Powered by LeadsPilotAI</div>
       </form>
     </div>
   );
 }
-
-export default App;

@@ -1,0 +1,27 @@
+{
+  "devDependencies": {
+    "esbuild": "^0.25.3"
+  },
+  "name": "product",
+  "version": "1.0.0",
+  "description": "**The AI Sales Agent That Works While You Sleep**",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/palmer95/PromptlyAI.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/palmer95/PromptlyAI/issues"
+  },
+  "homepage": "https://github.com/palmer95/PromptlyAI#readme",
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  }
+}

@@ -17,7 +17,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "build:widget": "parcel build chatbot.jsx --no-content-hash --dist-dir ../../leadspilotai-site/public"
   },
   "eslintConfig": {
     "extends": [
@@ -38,6 +39,9 @@
     ]
   },
   "devDependencies": {
+    "@parcel/transformer-inline-string": "^2.14.4",
+    "buffer": "^6.0.3",
+    "parcel": "^2.14.4",
     "prettier": "^3.5.3"
   }
 }
