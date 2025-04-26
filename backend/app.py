@@ -1,6 +1,7 @@
 # app.py
 import os
 import json
+import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -13,6 +14,7 @@ from langchain.memory import ConversationBufferMemory
 import sales_agent
 
 load_dotenv()
+CONFIG_BASE_URL = os.getenv("CONFIG_BASE_URL", "https://www.leadspilotai.com")
 
 app = Flask(__name__)
 # Allow widget calls from any origin (your clients’ domains)
@@ -23,18 +25,16 @@ _vectorstore_cache: dict[str, FAISS] = {}
 _config_cache: dict[str, dict] = {}
 
 def get_config(company: str) -> dict:
-    """Load or return cached client config JSON."""
+    """
+    Fetch (or return cached) client config from your marketing site's
+    /client-configs/{company}.json endpoint.
+    """
     if company not in _config_cache:
-        path = os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "client-configs",
-            f"{company}.json"
-        )
-        if not os.path.isfile(path):
-            raise FileNotFoundError(f"Config file not found: {path}")
-        with open(path) as f:
-            _config_cache[company] = json.load(f)
+        url = f"{CONFIG_BASE_URL}/client-configs/{company}.json"
+        resp = requests.get(url, timeout=5)
+        if not resp.ok:
+            raise FileNotFoundError(f"Could not fetch config: {url} → {resp.status_code}")
+        _config_cache[company] = resp.json()
     return _config_cache[company]
 
 def get_vectorstore(company: str) -> FAISS:
