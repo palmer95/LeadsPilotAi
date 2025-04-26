@@ -125,7 +125,7 @@ export default function App({ company, configUrl }) {
           </div>
         ))}
 
-        {loading && <div className="loading">Bot is typing…</div>}
+        {loading && <div className="loading">Clyde is thinking…</div>}
 
         {messages.length === 1 && (
           <>

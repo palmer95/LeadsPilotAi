@@ -1,4 +1,6 @@
 /* ChatWidget.css */
+
+/* Wrapper stays bottom-right with bubble below */
 .chat-widget-wrapper {
   position: fixed;
   bottom: 24px;
@@ -10,16 +12,18 @@
   gap: 12px; /* space between popup and bubble */
 }
 
-/* the slide-up chat window */
+/* Popup container: fixed height, flex layout, no overflow hidden */
 .chat-widget-popup {
   width: 380px;
-  max-height: 600px;
+  height: 600px; /* lock in max height */
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
-  overflow: hidden;
+
   display: flex;
   flex-direction: column;
+  overflow: unset; /* allow inner scrolling */
+
   animation: slideUp 0.3s ease-out;
 }
 
@@ -34,7 +38,22 @@
   }
 }
 
-/* the circular toggle bubble */
+/* Scrollable message area */
+.chat-box {
+  flex: 1 1 auto; /* fill available space */
+  overflow-y: auto; /* show vertical scrollbar when needed */
+  padding: 8px;
+}
+
+/* Input form pinned to bottom */
+.chat-form {
+  flex: 0 0 auto; /* fixed size at bottom */
+  padding: 8px;
+  border-top: 1px solid #eee;
+  background: #fafafa;
+}
+
+/* Circular bubble toggle */
 .chat-bubble {
   width: 64px;
   height: 64px;
