@@ -31,7 +31,7 @@ export default function App({ company, configUrl }) {
   // 2️⃣ Seed welcome once config arrives
   useEffect(() => {
     if (!config) return;
-    setMessages([{ user: "", bot: config.welcome }]);
+    setMessages([{ user: "", bot: `Hi I am Clyde 🤓, ${config.welcome}` }]);
   }, [config]);
 
   // 3️⃣ Scroll on new messages
@@ -91,7 +91,11 @@ export default function App({ company, configUrl }) {
     }
 
     // re-seed the welcome after a short delay
-    setTimeout(() => setMessages([{ user: "", bot: config.welcome }]), 200);
+    setTimeout(
+      () =>
+        setMessages([{ user: "", bot: `Hi I am Clyde 🤓, ${config.welcome}` }]),
+      200
+    );
   };
 
   // 7️⃣ Loading state
@@ -114,7 +118,7 @@ export default function App({ company, configUrl }) {
             )}
             {m.bot && (
               <div className="bot-msg">
-                <strong>{config.business_name}:</strong> {m.bot}
+                <strong>Clyde:</strong> {m.bot}
               </div>
             )}
             <hr />
