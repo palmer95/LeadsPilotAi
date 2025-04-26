@@ -40,9 +40,9 @@ def get_config(company: str) -> dict:
 def get_vectorstore(company: str) -> FAISS:
     """Load or return cached FAISS index for given company."""
     if company not in _vectorstore_cache:
+        # __file__ is .../backend/app.py, so dirname is .../backend
         dirpath = os.path.join(
             os.path.dirname(__file__),
-            "..",
             "vectorstores",
             f"{company}_vectorstore"
         )
