@@ -43,6 +43,7 @@ def get_vectorstore(company: str) -> FAISS:
         dirpath = os.path.join(
             os.path.dirname(__file__),
             "..",
+            "vectorstores",
             f"{company}_vectorstore"
         )
         if not os.path.isdir(dirpath):
