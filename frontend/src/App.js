@@ -93,7 +93,11 @@ export default function App({ company, configUrl }) {
       console.error("Reset failed:", err);
     }
     // re-seed welcome
-    setTimeout(() => setMessages([{ user: "", bot: config.welcome }]), 200);
+    setTimeout(
+      () =>
+        setMessages([{ user: "", bot: `Hi I'm Clyde 🤓, ${config.welcome}` }]),
+      200
+    );
   };
 
   // Show loading state for config
