@@ -115,7 +115,7 @@ export default function App({ company, configUrl }) {
             )}
             {m.bot && (
               <div className="bot-msg">
-                <strong>{config.business_name}:</strong> {m.bot}
+                <strong>Clyde:</strong> {m.bot}
               </div>
             )}
             <hr />
