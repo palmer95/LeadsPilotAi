@@ -157,11 +157,11 @@ export default function App({ company, configUrl }) {
         />
 
         <div className="chat-form-buttons">
-          <button type="submit" disabled={!query.trim() || loading}>
-            Send
-          </button>
           <button type="button" onClick={handleReset} disabled={loading}>
             Reset Chat
+          </button>
+          <button type="submit" disabled={!query.trim() || loading}>
+            Send
           </button>
         </div>
 
