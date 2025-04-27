@@ -31,7 +31,7 @@ export default function App({ company, configUrl }) {
   // Seed the welcome message
   useEffect(() => {
     if (!config) return;
-    setMessages([{ user: "", bot: config.welcome }]);
+    setMessages([{ user: "", bot: `Hi I'm Clyde 🤓, ${config.welcome}` }]);
   }, [config]);
 
   // Auto-scroll when messages change
