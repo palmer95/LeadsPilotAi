@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import "./App.css";
 
-// ─── Your real chat API ─────────────────────────────────────────────────────
+// your real chat API
 const API_BASE_URL = "https://leadspilotai.onrender.com";
 
 export default function App({ company, configUrl }) {
@@ -14,7 +14,7 @@ export default function App({ company, configUrl }) {
   const [loading, setLoading] = useState(false);
   const chatBoxRef = useRef(null);
 
-  // 1️⃣ Load the JSON from your public/client-configs folder
+  // Load the client config JSON
   useEffect(() => {
     if (!company) return;
     (async () => {
@@ -28,13 +28,13 @@ export default function App({ company, configUrl }) {
     })();
   }, [company, configUrl]);
 
-  // 2️⃣ Seed welcome once config arrives
+  // Seed the welcome message
   useEffect(() => {
     if (!config) return;
-    setMessages([{ user: "", bot: `Hi I am Clyde 🤓, ${config.welcome}` }]);
+    setMessages([{ user: "", bot: config.welcome }]);
   }, [config]);
 
-  // 3️⃣ Scroll on new messages
+  // Auto-scroll when messages change
   useEffect(() => {
     chatBoxRef.current?.scrollTo({
       top: chatBoxRef.current.scrollHeight,
@@ -42,17 +42,16 @@ export default function App({ company, configUrl }) {
     });
   }, [messages]);
 
-  // 4️⃣ Send a message to your Flask /api/chat
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!query.trim() || !config) return;
-
-    setMessages((m) => [...m, { user: query, bot: "…" }]);
+  // Core send logic
+  const sendMessage = async (msg) => {
+    if (!msg.trim() || !config) return;
+    // append the user's message
+    setMessages((m) => [...m, { user: msg, bot: "…" }]);
     setLoading(true);
 
     try {
       const res = await axios.post(`${API_BASE_URL}/api/chat`, {
-        query,
+        query: msg,
         company,
       });
       setMessages((m) => {
@@ -67,43 +66,41 @@ export default function App({ company, configUrl }) {
         last.bot = "Something went wrong!";
         return [...m.slice(0, -1), last];
       });
+    } finally {
+      setLoading(false);
     }
+  };
 
+  // Form submit uses sendMessage()
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    sendMessage(query);
     setQuery("");
-    setLoading(false);
   };
 
-  // 5️⃣ FAQ buttons still driven by config.faqs
+  // FAQ click now calls sendMessage() directly
   const handleFAQClick = (faq) => {
-    setQuery(faq);
-    setTimeout(() => document.querySelector("form").requestSubmit(), 50);
+    sendMessage(faq);
   };
 
-  // 6️⃣ Reset both UI and server-side state
+  // Reset chat
   const handleReset = async () => {
     setMessages([]);
     setQuery("");
-
     try {
       await axios.post(`${API_BASE_URL}/api/reset`);
     } catch (err) {
       console.error("Reset failed:", err);
     }
-
-    // re-seed the welcome after a short delay
-    setTimeout(
-      () =>
-        setMessages([{ user: "", bot: `Hi I am Clyde 🤓, ${config.welcome}` }]),
-      200
-    );
+    // re-seed welcome
+    setTimeout(() => setMessages([{ user: "", bot: config.welcome }]), 200);
   };
 
-  // 7️⃣ Loading state
+  // Show loading state for config
   if (!config) {
     return <div className="chat-container">Loading…</div>;
   }
 
-  // ─── Render the chat UI ────────────────────────────────────────────────────
   return (
     <div className="chat-container">
       <h2>{config.business_name} Chat</h2>
@@ -118,14 +115,14 @@ export default function App({ company, configUrl }) {
             )}
             {m.bot && (
               <div className="bot-msg">
-                <strong>Clyde:</strong> {m.bot}
+                <strong>{config.business_name}:</strong> {m.bot}
               </div>
             )}
             <hr />
           </div>
         ))}
 
-        {loading && <div className="loading">Clyde is thinking…</div>}
+        {loading && <div className="loading">Bot is typing…</div>}
 
         {messages.length === 1 && (
           <>
@@ -136,6 +133,7 @@ export default function App({ company, configUrl }) {
                   key={idx}
                   onClick={() => handleFAQClick(q)}
                   className="faq-button"
+                  disabled={loading}
                 >
                   {q}
                 </button>
@@ -151,6 +149,7 @@ export default function App({ company, configUrl }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Ask something…"
+          disabled={loading}
         />
 
         <div className="chat-form-buttons">
