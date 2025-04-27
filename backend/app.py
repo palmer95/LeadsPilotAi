@@ -18,7 +18,7 @@ CONFIG_BASE_URL = os.getenv("CONFIG_BASE_URL", "https://www.leadspilotai.com")
 
 app = Flask(__name__)
 # Allow widget calls from any origin (your clients’ domains)
-CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=False)
 
 # Caches to avoid re-loading indexes/configs on every call
 _vectorstore_cache: dict[str, FAISS] = {}
