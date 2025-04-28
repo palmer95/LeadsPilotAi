@@ -10,6 +10,7 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
+from datetime import datetime
 
 import sales_agent
 
@@ -47,19 +48,16 @@ def add_cors_headers(response):
     return response
 
 def get_config(company: str) -> dict:
-    """Fetch or return cached client config."""
     if company not in _config_cache:
         url = f"{CONFIG_BASE_URL}/client-configs/{company}.json"
         try:
             resp = requests.get(url, timeout=5)
             resp.raise_for_status()
             config = resp.json()
-            # Validate required config fields
             required_fields = ["business_name", "packages", "qualifying_questions"]
             for field in required_fields:
                 if field not in config:
                     raise ValueError(f"Missing required config field: {field}")
-            # Ensure packages have valid names
             for pkg in config.get("packages", []):
                 pkg_name = pkg.get("name", "")
                 if not pkg_name or not all(c.isalnum() or c in " -_" for c in pkg_name):
@@ -74,9 +72,7 @@ def get_config(company: str) -> dict:
     return _config_cache[company]
 
 def get_vectorstore(company: str) -> FAISS:
-    """Load or return cached FAISS index for given company."""
     if company not in _vectorstore_cache:
-        # Use original path format: vectorstores/{company}_vectorstore
         dirpath = os.path.join(
             os.path.dirname(__file__),
             "vectorstores",
@@ -89,7 +85,7 @@ def get_vectorstore(company: str) -> FAISS:
             _vectorstore_cache[company] = FAISS.load_local(
                 dirpath,
                 OpenAIEmbeddings(),
-                allow_dangerous_deserialization=True  # TODO: Address security risk
+                allow_dangerous_deserialization=True
             )
         except Exception as e:
             logger.error(f"Failed to load vector store for {company}: {e}")
@@ -110,12 +106,11 @@ def chat():
     data = request.get_json(force=True)
     company = data.get("company")
     query = data.get("query", "").strip()
-    session_id = data.get("session_id", "default")  # Add session ID for memory persistence
+    session_id = data.get("session_id", "default")
 
     if not company or not query:
         return jsonify({"error": "Missing 'company' or 'query' in request body."}), 400
 
-    # Load client config
     try:
         CONFIG = get_config(company)
     except FileNotFoundError as e:
@@ -125,14 +120,12 @@ def chat():
         logger.error(f"Config validation failed for {company}: {e}")
         return jsonify({"error": str(e)}), 400
 
-    # Load vector store
     try:
         vs = get_vectorstore(company)
     except FileNotFoundError as e:
         logger.error(f"Vector store load failed for {company}: {e}")
         return jsonify({"error": str(e)}), 404
 
-    # Initialize or retrieve session memory
     memory_key = f"{company}:{session_id}"
     if memory_key not in _session_memory:
         _session_memory[memory_key] = ConversationBufferMemory(
@@ -141,30 +134,21 @@ def chat():
         )
     memory = _session_memory[memory_key]
 
-    # Build QA chain
     qa_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
-        retriever=vs.as_retriever(search_kwargs={"k": 3}),  # Limit to top 3 results
+        retriever=vs.as_retriever(search_kwargs={"k": 3}),
         memory=memory
     )
 
     user_input = query.lower()
 
-    # Check for exit intent if sales flow is active or pending
-    if (sales_agent.is_active() or sales_agent.sales_state.get("pending", False)) and sales_agent.is_exit_intent(user_input):
-        sales_agent.reset_sales_state()
-        logger.info(f"User exited sales flow for {company}: {user_input}")
-        return jsonify({
-            "response": "Got it, let’s step back. How can I help you now?"
-        })
-
-    # Handle pricing inquiries
-    if not sales_agent.is_active() and not sales_agent.sales_state.get("pending", False) and sales_agent.is_pricing_inquiry(user_input):
+    # Handle pricing inquiries (transition to engaged state)
+    if sales_agent.sales_state["state"] in ["idle", "exited"] and sales_agent.is_pricing_inquiry(user_input):
         logger.info(f"Pricing inquiry detected for {company}: {user_input}")
         return jsonify(sales_agent.handle_pricing_inquiry(CONFIG))
 
-    # Handle sales triggers with confirmation
-    if not sales_agent.is_active() and not sales_agent.sales_state.get("pending", False):
+    # Handle sales triggers (transition to booking state)
+    if sales_agent.sales_state["state"] in ["idle", "exited", "engaged"]:
         sales_trigger = sales_agent.is_sales_trigger(user_input, CONFIG)
         logger.info(f"Sales trigger check for {company}: {user_input} → {sales_trigger}")
         if sales_trigger:
@@ -176,33 +160,79 @@ def chat():
                 logger.exception(f"Error in start_sales_flow for {company}")
                 return jsonify({"response": "Sorry, I couldn’t start the booking process. Let’s try something else."}), 500
 
-    # Continue sales flow if active or pending
-    if sales_agent.is_active() or sales_agent.sales_state.get("pending", False):
+    # Continue sales flow if in engaged or booking state
+    if sales_agent.sales_state["state"] in ["engaged", "booking"]:
         try:
             selected_package = sales_agent.extract_package(user_input, CONFIG)
             logger.info(f"Package extraction in sales flow for {company}: {user_input} → {selected_package}")
             result = sales_agent.continue_sales_flow(user_input, CONFIG)
             logger.info(f"Continuing sales flow for {company}: {user_input}")
+
+            # Handle informational queries
+            if result["response"] == "__INFORMATIONAL_QUERY__":
+                logger.info(f"Informational query detected for {company}: {user_input}")
+                qa_result = qa_chain({"question": user_input})
+                response_text = qa_result.get("answer", "").strip()
+                logger.info(f"QA response for informational query: {response_text[:100]}...")
+
+                for pkg in CONFIG["packages"]:
+                    if pkg["name"].lower() in response_text.lower():
+                        sales_agent.sales_state["last_mentioned_package"] = pkg["name"]
+                        logger.info(f"Updated last_mentioned_package to {pkg['name']} based on QA response")
+                        break
+
+                fallback_phrases = [
+                    "i'm not sure", "i do not have that information",
+                    "i don't have specific information", "i don't know"
+                ]
+                if (not response_text or
+                    any(phrase in response_text.lower() for phrase in fallback_phrases)):
+                    logger.info(f"QA response uncertain, triggering fallback for {company}")
+                    direct = ChatOpenAI(temperature=0.3, model="gpt-3.5-turbo", request_timeout=30)
+                    prompt = f"""
+You are Clyde 🤓, the AI assistant for {CONFIG['business_name']}.
+You help customers by answering questions and capturing lead details.
+
+Business details:
+{CONFIG['description']}
+
+User said:
+\"\"\"{query}\"\"
+
+Respond as Clyde.
+"""
+                    fallback = direct.invoke(prompt)
+                    response_text = fallback.content.strip()
+                    logger.info(f"Fallback response for {company}: {response_text[:100]}...")
+
+                    for pkg in CONFIG["packages"]:
+                        if pkg["name"].lower() in response_text.lower():
+                            sales_agent.sales_state["last_mentioned_package"] = pkg["name"]
+                            logger.info(f"Updated last_mentioned_package to {pkg['name']} based on fallback response")
+                            break
+
+                # Pass the QA response back to continue_sales_flow to append the follow-up prompt
+                result = sales_agent.continue_sales_flow(user_input, CONFIG, qa_response=response_text)
+                return jsonify(result)
+
             return jsonify(result)
         except Exception as e:
             logger.exception(f"Error in continue_sales_flow for {company}")
             return jsonify({"response": "Sorry, I couldn’t continue the booking process. Let’s try something else."}), 500
 
-    # Normal QA
+    # Normal QA for idle or exited state
     try:
         logger.info(f"Processing QA for {company}: {user_input}")
         result = qa_chain({"question": user_input})
         response_text = result.get("answer", "").strip()
         logger.info(f"QA response for {company}: {response_text[:100]}...")
 
-        # Check if the response mentions a package and update last_mentioned_package
         for pkg in CONFIG["packages"]:
             if pkg["name"].lower() in response_text.lower():
                 sales_agent.sales_state["last_mentioned_package"] = pkg["name"]
                 logger.info(f"Updated last_mentioned_package to {pkg['name']} based on QA response")
                 break
 
-        # Fallback for uncertain responses
         fallback_phrases = [
             "i'm not sure", "i do not have that information",
             "i don't have specific information", "i don't know"
@@ -219,7 +249,7 @@ Business details:
 {CONFIG['description']}
 
 User said:
-\"\"\"{query}\"\"\"
+\"\"\"{query}\"\"
 
 Respond as Clyde.
 """
@@ -227,7 +257,6 @@ Respond as Clyde.
             response_text = fallback.content.strip()
             logger.info(f"Fallback response for {company}: {response_text[:100]}...")
 
-            # Check fallback response for package mentions
             for pkg in CONFIG["packages"]:
                 if pkg["name"].lower() in response_text.lower():
                     sales_agent.sales_state["last_mentioned_package"] = pkg["name"]
@@ -242,7 +271,6 @@ Respond as Clyde.
 
 @app.route('/api/reset', methods=['POST'])
 def reset():
-    # Clear sales state and session memory
     data = request.get_json(force=True, silent=True) or {}
     session_id = data.get("session_id", "default")
     company = data.get("company", "unknown")
