@@ -168,6 +168,12 @@ def chat():
         result = qa_chain({"question": user_input})
         response_text = result.get("answer", "").strip()
 
+        # Check if the response mentions a package and update last_mentioned_package
+        for pkg in CONFIG["packages"]:
+            if pkg["name"].lower() in response_text.lower():
+                sales_agent.sales_state["last_mentioned_package"] = pkg["name"]
+                break
+
         # Fallback if LLM is uncertain
         fallback_phrases = [
             "i'm not sure", "i do not have that information",

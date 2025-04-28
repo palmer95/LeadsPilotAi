@@ -71,19 +71,26 @@ def handle_pricing_inquiry(config):
         "\n\nDoes any of these packages sound like a good fit? "
         "If you’re ready to proceed, just let me know which one you’re interested in!"
     )
-    sales_state["pending"] = True  # Mark sales flow as pending confirmation
+    sales_state["pending"] = True
     sales_state["interested_package"] = None
+    # Clear last mentioned package on pricing inquiry
+    sales_state["last_mentioned_package"] = None
 
     return {
         "response": pricing_text + follow_up
     }
 
 def extract_package(user_input, config):
-    """Extract package name from user input."""
+    """Extract package name from user input with context awareness."""
     ui = user_input.lower()
+    # Check for explicit package name
     for pkg in config["packages"]:
         if pkg["name"].lower() in ui:
+            sales_state["last_mentioned_package"] = pkg["name"]
             return pkg["name"]
+    # If "that" is in the input and we have a last mentioned package, use it
+    if "that" in ui and sales_state["last_mentioned_package"]:
+        return sales_state["last_mentioned_package"]
     return None
 
 def is_exit_intent(user_input):
@@ -93,12 +100,16 @@ def is_exit_intent(user_input):
 
 def is_sales_trigger(user_input, config):
     """Detect sales intent with stricter matching."""
-    ui = user_input.lower()
+    ui = user_input.lower().replace("’", "'")  # Normalize apostrophes
     triggers = config["sales_triggers"]
-    # Require a clear intent by checking for additional context
-    intent_indicators = ["i want to", "i’d like to", "can i", "let’s", "ready to"]
+    # Split intent indicators into individual words for more flexible matching
+    intent_indicators = ["i want to", "i'd like to", "can i", "let's", "ready to"]
     has_trigger = any(trigger in ui for trigger in triggers)
-    has_intent = any(indicator in ui for indicator in intent_indicators)
+    # Check for intent by splitting phrases into words
+    has_intent = any(
+        all(word in ui for word in indicator.split())
+        for indicator in intent_indicators
+    )
     return has_trigger and has_intent
 
 sales_state = {
@@ -106,7 +117,8 @@ sales_state = {
     "pending": False,
     "question_index": 0,
     "answers": [],
-    "interested_package": None
+    "interested_package": None,
+    "last_mentioned_package": None
 }
 
 def start_sales_flow(config, user_input=""):
@@ -129,6 +141,7 @@ def continue_sales_flow(user_input: str, config: dict):
     if sales_state["pending"]:
         selected_package = extract_package(user_input, config)
         if selected_package:
+            sales_state["last_mentioned_package"] = selected_package
             return start_sales_flow(config, user_input)
         if is_exit_intent(user_input):
             reset_sales_state()
