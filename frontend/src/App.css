@@ -13,9 +13,9 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 500px; /* Constrain width for better readability */
-  height: 85vh; /* Dynamic height based on viewport */
-  max-height: 700px; /* Upper limit to prevent overflow */
+  max-width: 500px;
+  height: 85vh;
+  max-height: 700px;
   background-color: var(--background);
   border-radius: 16px;
   box-shadow: 0 4px 16px var(--shadow);
@@ -24,14 +24,14 @@
     -apple-system,
     BlinkMacSystemFont,
     sans-serif;
-  overflow: hidden; /* Prevent content from overflowing */
+  overflow: hidden;
 }
 
 .chat-header {
   margin: 0;
-  padding: 1rem;
+  padding: 1.25rem;
   text-align: center;
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: var(--text);
   background-color: #ffffff;
@@ -40,7 +40,7 @@
 
 .chat-box {
   flex: 1 1 auto;
-  padding: 1.5rem;
+  padding: 2rem;
   background-color: var(--neutral);
   overflow-y: auto;
   border-bottom: 1px solid #ddd;
@@ -53,46 +53,46 @@
 .user-msg {
   display: flex;
   justify-content: flex-end;
-  margin: 0.5rem 0;
+  margin: 0.75rem 0;
 }
 
 .user-msg .message-label {
-  display: none; /* Hide label for cleaner look */
+  display: none;
 }
 
 .user-msg::before {
   content: "You:";
   font-weight: 600;
   color: var(--text);
-  margin-right: 0.5rem;
+  margin-right: 0.75rem;
   align-self: center;
 }
 
 .bot-msg {
   display: flex;
   justify-content: flex-start;
-  margin: 0.5rem 0;
+  margin: 0.75rem 0;
 }
 
 .bot-msg .message-label {
-  display: none; /* Hide label for cleaner look */
+  display: none;
 }
 
 .bot-msg::before {
   content: "Clyde:";
   font-weight: 600;
   color: var(--text);
-  margin-right: 0.5rem;
+  margin-right: 0.75rem;
   align-self: center;
 }
 
 .user-msg,
 .bot-msg {
   max-width: 80%;
-  padding: 0.75rem 1rem;
+  padding: 1rem 1.25rem;
   border-radius: 12px;
-  font-size: 0.95rem;
-  line-height: 1.4;
+  font-size: 1rem;
+  line-height: 1.5;
   color: var(--text);
 }
 
@@ -146,7 +146,7 @@
 .faq-divider {
   margin: 1rem 0 0.5rem;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: var(--text);
   opacity: 0.8;
 }
@@ -154,20 +154,27 @@
 .faq-buttons {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
   margin: 1rem 0;
 }
 
 .faq-button {
+  width: 100%; /* Full width to maximize space for text */
   padding: 0.75rem 1rem;
   border: 1px solid var(--primary);
   background-color: #ffffff;
   border-radius: 8px;
   cursor: pointer;
   text-align: left;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: var(--text);
   transition: all 0.2s ease;
+  white-space: normal; /* Allow text to wrap */
+  word-wrap: break-word; /* Ensure long words break */
+  height: auto; /* Dynamic height based on content */
+  min-height: 48px; /* Ensure button is tall enough for single-line text */
+  display: flex;
+  align-items: center; /* Vertically center text */
 }
 
 .faq-button:hover:not(:disabled) {
@@ -186,14 +193,14 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  padding: 1rem;
+  padding: 1.25rem;
   background: #ffffff;
   border-top: 1px solid #ddd;
 }
 
 .chat-input {
   width: 100%;
-  padding: 0.75rem;
+  padding: 1rem;
   font-size: 1rem;
   border: 1px solid #ddd;
   border-radius: 8px;
@@ -275,21 +282,40 @@
 /* Mobile Adjustments */
 @media (max-width: 768px) {
   .chat-container {
-    height: 90vh; /* More space on mobile */
-    max-height: none; /* Remove max-height constraint */
-    border-radius: 0; /* Full-screen on mobile */
+    max-width: 100%;
+    height: 90vh;
+    max-height: none;
+    border-radius: 0;
   }
 
   .chat-header {
-    font-size: 1.1rem;
-  }
-
-  .chat-box {
+    font-size: 1.2rem;
     padding: 1rem;
   }
 
+  .chat-box {
+    padding: 1.25rem;
+  }
+
+  .user-msg,
+  .bot-msg {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .faq-button {
+    font-size: 0.9rem;
+    min-height: 44px; /* Slightly smaller for mobile */
+    padding: 0.5rem 0.75rem;
+  }
+
   .chat-form {
+    padding: 1rem;
+  }
+
+  .chat-input {
     padding: 0.75rem;
+    font-size: 0.9rem;
   }
 
   .chat-form-buttons button {
