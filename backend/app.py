@@ -104,11 +104,29 @@ def chat():
         return jsonify(sales_agent.handle_pricing_inquiry(CONFIG))
 
     if not sales_agent.is_active() and sales_agent.is_sales_trigger(user_input, CONFIG):
-        return jsonify(sales_agent.start_sales_flow(CONFIG))
-
+        try:
+            result = sales_agent.start_sales_flow(CONFIG, user_input)
+            return jsonify(result)
+        except Exception as e:
+            app.logger.exception("Error in start_sales_flow")
+            response = jsonify({ "response": "Sorry, something went wrong starting the sales flow." })
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            return response
+    
     if sales_agent.is_active():
-        return jsonify(sales_agent.continue_sales_flow(user_input, CONFIG))
-
+        try:
+            result = sales_agent.continue_sales_flow(user_input, CONFIG)
+            return jsonify(result)
+        except Exception as e:
+            # Log the full traceback for later debugging
+            app.logger.exception("Error in continue_sales_flow")
+            # Return a graceful fallback
+            response = jsonify({
+                "response": "Sorry, something went wrong continuing the sales flow."
+            })
+            # ensure CORS header is present
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            return response
     # 4) Normal QA
     try:
         result = qa_chain({"question": user_input})
