@@ -13,9 +13,9 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 400px; /* Constrain width for better readability */
-  height: 80vh; /* Dynamic height based on viewport */
-  max-height: 600px; /* Upper limit to prevent overflow */
+  max-width: 500px; /* Constrain width for better readability */
+  height: 85vh; /* Dynamic height based on viewport */
+  max-height: 700px; /* Upper limit to prevent overflow */
   background-color: var(--background);
   border-radius: 16px;
   box-shadow: 0 4px 16px var(--shadow);
