@@ -106,73 +106,155 @@ def start_sales_flow(config, user_input=""):
         "response": f"Great! Let's get you set up. {first_question}"
     }
 
-def continue_sales_flow(user_input, config):
-    sales_state["answers"].append(user_input)
-    sales_state["question_index"] += 1
+def continue_sales_flow(user_input: str, config: dict):
+    """
+    Record the user's answer, advance the question index, and either
+    ask the next qualifier or finish the flow (persist + email + reset).
+    """
+    # 1) Figure out which question we're answering right now
+    idx = sales_state["question_index"]
 
-        # Extend total questions: core + contact
+    # 2) Build the full list of questions (qualifiers + contact)
     total_questions = config["qualifying_questions"] + [
         "What’s your name?",
         "What’s the best phone number or email to reach you?"
     ]
 
+    # 3) Save this answer as a dict {question, answer}
+    sales_state["answers"].append({
+        "question": total_questions[idx],
+        "answer":   user_input
+    })
+
+    # 4) Move to the next question
+    sales_state["question_index"] = idx + 1
+
+    # 5) If we still have questions left, ask the next one
     if sales_state["question_index"] < len(total_questions):
         next_q = total_questions[sales_state["question_index"]]
-        return { "response": next_q }
-    else:
-        # Last two answers:
-        name = sales_state["answers"][-2]
-        contact = sales_state["answers"][-1]
+        return {"response": next_q}
 
-        # All earlier answers (qualifying questions):
-        details = sales_state["answers"][:-2]
+    # 6) All questions answered! Extract pieces for persistence
+    #    - Last two answers are name + contact
+    name    = sales_state["answers"][-2]["answer"]
+    contact = sales_state["answers"][-1]["answer"]
 
-        # Write to SqlLite
-        session = SessionLocal()
-        lead = Lead(
-            company_id=1,  # hardcoded or dynamic in future
-            name=name,
-            contact=contact,
-            interested_package=sales_state.get("interested_package", ""),
-            details="\n".join([
-                f"{q}: {a}" for q, a in zip(
-                    config["qualifying_questions"], details
-                )
-            ])
+    #    - Earlier answers are the qualifiers
+    qualifiers = sales_state["answers"][:-2]  # list of dicts
+
+    # 7) Write to SQLite
+    session = SessionLocal()
+    lead = Lead(
+        company_id=1,  # adjust if you have dynamic IDs
+        name=name,
+        contact=contact,
+        interested_package=sales_state.get("interested_package", ""),
+        details="\n".join(
+            f"{config['qualifying_questions'][i]}: {qualifiers[i]['answer']}"
+            for i in range(len(config["qualifying_questions"]))
         )
-        session.add(lead)
-        session.commit()
-        session.close()
+    )
+    session.add(lead)
+    session.commit()
+    session.close()
 
-        # Email
-        company_name = config["business_name"]
-        pkg = sales_state.get("interested_package", "")
-        # Build a flattened summary of Q&A
-        qa_lines = "\n".join(
-            f"{qa['question']}\n→ {qa['answer']}"
-            for qa in sales_state["answers"]
+    # 8) Build the email summary
+    company_name = config["business_name"]
+    pkg          = sales_state.get("interested_package", "")
+    qa_lines     = "\n\n".join(
+        f"{item['question']}\n→ {item['answer']}"
+        for item in sales_state["answers"]
+    )
+    initial_msg  = sales_state["answers"][0]["answer"]
+
+    # 9) Send the lead email to the client’s team_email
+    send_lead_email(
+        company_name=company_name,
+        interested_package=pkg,
+        initial_message=initial_msg,
+        full_qa=qa_lines,
+        to_email=config["team_email"]
+    )
+
+    # 10) Reset the flow state for next time
+    reset_sales_state()
+
+    # 11) Return the final “thank you” response
+    return {
+        "response": (
+            "Thanks! I’ve passed your info to the team. "
+            "We’ll reach out shortly."
         )
-        initial_msg = sales_state["answers"][0]["answer"]
+    }
 
-        # Send to the team
-        send_lead_email(
-            company_name=company_name,
-            interested_package=pkg,
-            initial_message=initial_msg,
-            full_qa=qa_lines,
-            to_email=config["team_email"]
-        )
+# OLD CONTINUE SALES FLOW
+# def continue_sales_flow(user_input, config):
+#     sales_state["answers"].append(user_input)
+#     sales_state["question_index"] += 1
+
+#         # Extend total questions: core + contact
+#     total_questions = config["qualifying_questions"] + [
+#         "What’s your name?",
+#         "What’s the best phone number or email to reach you?"
+#     ]
+
+#     if sales_state["question_index"] < len(total_questions):
+#         next_q = total_questions[sales_state["question_index"]]
+#         return { "response": next_q }
+#     else:
+#         # Last two answers:
+#         name = sales_state["answers"][-2]
+#         contact = sales_state["answers"][-1]
+
+#         # All earlier answers (qualifying questions):
+#         details = sales_state["answers"][:-2]
+
+#         # Write to SqlLite
+#         session = SessionLocal()
+#         lead = Lead(
+#             company_id=1,  # hardcoded or dynamic in future
+#             name=name,
+#             contact=contact,
+#             interested_package=sales_state.get("interested_package", ""),
+#             details="\n".join([
+#                 f"{q}: {a}" for q, a in zip(
+#                     config["qualifying_questions"], details
+#                 )
+#             ])
+#         )
+#         session.add(lead)
+#         session.commit()
+#         session.close()
+
+#         # Email
+#         company_name = config["business_name"]
+#         pkg = sales_state.get("interested_package", "")
+#         # Build a flattened summary of Q&A
+#         qa_lines = "\n".join(
+#             f"{qa['question']}\n→ {qa['answer']}"
+#             for qa in sales_state["answers"]
+#         )
+#         initial_msg = sales_state["answers"][0]["answer"]
+
+#         # Send to the team
+#         send_lead_email(
+#             company_name=company_name,
+#             interested_package=pkg,
+#             initial_message=initial_msg,
+#             full_qa=qa_lines,
+#             to_email=config["team_email"]
+#         )
 
 
-        reset_sales_state()
+#         reset_sales_state()
 
-        #print("\n===== NEW LEAD CAPTURED =====")
-        #print(summary)
-        #print("=================================\n")
+#         #print("\n===== NEW LEAD CAPTURED =====")
+#         #print(summary)
+#         #print("=================================\n")
 
-        return {
-            "response": f"Thanks! I’ve passed your info to the team. We’ll reach out shortly."
-        }
+#         return {
+#             "response": f"Thanks! I’ve passed your info to the team. We’ll reach out shortly."
+#         }
 
 def is_active():
     return sales_state["active"]
