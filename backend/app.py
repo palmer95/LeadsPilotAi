@@ -53,21 +53,34 @@ def get_config(company: str) -> dict:
         try:
             resp = requests.get(url, timeout=5)
             resp.raise_for_status()
-            _config_cache[company] = resp.json()
+            config = resp.json()
+            # Validate required config fields
+            required_fields = ["business_name", "packages", "qualifying_questions"]
+            for field in required_fields:
+                if field not in config:
+                    raise ValueError(f"Missing required config field: {field}")
+            # Ensure packages have valid names
+            for pkg in config.get("packages", []):
+                pkg_name = pkg.get("name", "")
+                if not pkg_name or not all(c.isalnum() or c in " -_" for c in pkg_name):
+                    raise ValueError(f"Invalid package name: {pkg_name}")
+            _config_cache[company] = config
         except requests.RequestException as e:
             logger.error(f"Failed to fetch config for {company}: {e}")
             raise FileNotFoundError(f"Could not fetch config: {url} → {e}")
+        except ValueError as e:
+            logger.error(f"Invalid config for {company}: {e}")
+            raise
     return _config_cache[company]
 
 def get_vectorstore(company: str) -> FAISS:
     """Load or return cached FAISS index for given company."""
     if company not in _vectorstore_cache:
+        # Use original path format: vectorstores/{company}_vectorstore
         dirpath = os.path.join(
             os.path.dirname(__file__),
             "vectorstores",
-            f"{company}_vectorstore",
-            # Load the latest vector store based on timestamp
-            #max(os.listdir(os.path.join(os.path.dirname(__file__), "vectorstores", company)))
+            f"{company}_vectorstore"
         )
         if not os.path.isdir(dirpath):
             logger.error(f"Vectorstore not found: {dirpath}")
@@ -83,8 +96,8 @@ def get_vectorstore(company: str) -> FAISS:
             raise
     return _vectorstore_cache[company]
 
-# Shared LLM instance
-llm = ChatOpenAI(temperature=0.3, model="gpt-3.5-turbo")
+# Shared LLM instance with timeout
+llm = ChatOpenAI(temperature=0.3, model="gpt-3.5-turbo", request_timeout=30)
 
 # Per-session memory to persist conversation history across requests
 _session_memory: dict[str, ConversationBufferMemory] = {}
@@ -108,6 +121,9 @@ def chat():
     except FileNotFoundError as e:
         logger.error(f"Config load failed for {company}: {e}")
         return jsonify({"error": str(e)}), 404
+    except ValueError as e:
+        logger.error(f"Config validation failed for {company}: {e}")
+        return jsonify({"error": str(e)}), 400
 
     # Load vector store
     try:
@@ -134,30 +150,39 @@ def chat():
 
     user_input = query.lower()
 
-    # Check for sales flow exit intent
-    if sales_agent.is_active() and sales_agent.is_exit_intent(user_input):
+    # Check for exit intent if sales flow is active or pending
+    if (sales_agent.is_active() or sales_agent.sales_state.get("pending", False)) and sales_agent.is_exit_intent(user_input):
         sales_agent.reset_sales_state()
+        logger.info(f"User exited sales flow for {company}: {user_input}")
         return jsonify({
             "response": "Got it, let’s step back. How can I help you now?"
         })
 
     # Handle pricing inquiries
-    if not sales_agent.is_active() and sales_agent.is_pricing_inquiry(user_input):
+    if not sales_agent.is_active() and not sales_agent.sales_state.get("pending", False) and sales_agent.is_pricing_inquiry(user_input):
+        logger.info(f"Pricing inquiry detected for {company}: {user_input}")
         return jsonify(sales_agent.handle_pricing_inquiry(CONFIG))
 
     # Handle sales triggers with confirmation
-    if not sales_agent.is_active() and sales_agent.is_sales_trigger(user_input, CONFIG):
-        try:
-            result = sales_agent.start_sales_flow(CONFIG, user_input)
-            return jsonify(result)
-        except Exception as e:
-            logger.exception(f"Error in start_sales_flow for {company}")
-            return jsonify({"response": "Sorry, I couldn’t start the booking process. Let’s try something else."}), 500
+    if not sales_agent.is_active() and not sales_agent.sales_state.get("pending", False):
+        sales_trigger = sales_agent.is_sales_trigger(user_input, CONFIG)
+        logger.info(f"Sales trigger check for {company}: {user_input} → {sales_trigger}")
+        if sales_trigger:
+            try:
+                result = sales_agent.start_sales_flow(CONFIG, user_input)
+                logger.info(f"Started sales flow for {company}: {user_input}")
+                return jsonify(result)
+            except Exception as e:
+                logger.exception(f"Error in start_sales_flow for {company}")
+                return jsonify({"response": "Sorry, I couldn’t start the booking process. Let’s try something else."}), 500
 
-    # Continue sales flow if active
-    if sales_agent.is_active():
+    # Continue sales flow if active or pending
+    if sales_agent.is_active() or sales_agent.sales_state.get("pending", False):
         try:
+            selected_package = sales_agent.extract_package(user_input, CONFIG)
+            logger.info(f"Package extraction in sales flow for {company}: {user_input} → {selected_package}")
             result = sales_agent.continue_sales_flow(user_input, CONFIG)
+            logger.info(f"Continuing sales flow for {company}: {user_input}")
             return jsonify(result)
         except Exception as e:
             logger.exception(f"Error in continue_sales_flow for {company}")
@@ -165,24 +190,27 @@ def chat():
 
     # Normal QA
     try:
+        logger.info(f"Processing QA for {company}: {user_input}")
         result = qa_chain({"question": user_input})
         response_text = result.get("answer", "").strip()
+        logger.info(f"QA response for {company}: {response_text[:100]}...")
 
         # Check if the response mentions a package and update last_mentioned_package
         for pkg in CONFIG["packages"]:
             if pkg["name"].lower() in response_text.lower():
                 sales_agent.sales_state["last_mentioned_package"] = pkg["name"]
+                logger.info(f"Updated last_mentioned_package to {pkg['name']} based on QA response")
                 break
 
-        # Fallback if LLM is uncertain
+        # Fallback for uncertain responses
         fallback_phrases = [
             "i'm not sure", "i do not have that information",
-            "i don't have specific information", "i don't know",
-            "i'm sorry", "i don't have information"
+            "i don't have specific information", "i don't know"
         ]
         if (not response_text or
             any(phrase in response_text.lower() for phrase in fallback_phrases)):
-            direct = ChatOpenAI(temperature=0.3, model="gpt-3.5-turbo")
+            logger.info(f"QA response uncertain, triggering fallback for {company}")
+            direct = ChatOpenAI(temperature=0.3, model="gpt-3.5-turbo", request_timeout=30)
             prompt = f"""
 You are Clyde 🤓, the AI assistant for {CONFIG['business_name']}.
 You help customers by answering questions and capturing lead details.
@@ -197,6 +225,14 @@ Respond as Clyde.
 """
             fallback = direct.invoke(prompt)
             response_text = fallback.content.strip()
+            logger.info(f"Fallback response for {company}: {response_text[:100]}...")
+
+            # Check fallback response for package mentions
+            for pkg in CONFIG["packages"]:
+                if pkg["name"].lower() in response_text.lower():
+                    sales_agent.sales_state["last_mentioned_package"] = pkg["name"]
+                    logger.info(f"Updated last_mentioned_package to {pkg['name']} based on fallback response")
+                    break
 
         return jsonify({"response": response_text})
 
@@ -214,6 +250,7 @@ def reset():
     sales_agent.reset_sales_state()
     if memory_key in _session_memory:
         del _session_memory[memory_key]
+    logger.info(f"Reset sales flow and chat history for {company}")
     return jsonify({"message": "Sales flow and chat history reset."})
 
 if __name__ == '__main__':

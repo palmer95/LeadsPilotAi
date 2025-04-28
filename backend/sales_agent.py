@@ -99,17 +99,34 @@ def is_exit_intent(user_input):
     return any(intent in ui for intent in EXIT_INTENTS)
 
 def is_sales_trigger(user_input, config):
-    """Detect sales intent with stricter matching."""
-    ui = user_input.lower().replace("’", "'")  # Normalize apostrophes
-    triggers = config["sales_triggers"]
-    # Split intent indicators into individual words for more flexible matching
+    """Detect sales intent with more flexible matching."""
+    # Normalize input: lowercase, replace apostrophes, and normalize spaces
+    ui = user_input.lower().replace("’", "'").replace("  ", " ").strip()
+    # Use config sales_triggers if available, otherwise fall back to defaults
+    triggers = config.get("sales_triggers", ["book", "schedule", "get started", "purchase"])
     intent_indicators = ["i want to", "i'd like to", "can i", "let's", "ready to"]
+    
+    # Check for sales triggers
     has_trigger = any(trigger in ui for trigger in triggers)
-    # Check for intent by splitting phrases into words
-    has_intent = any(
-        all(word in ui for word in indicator.split())
-        for indicator in intent_indicators
-    )
+    
+    # More flexible intent detection: check for partial matches of intent phrases
+    has_intent = False
+    for indicator in intent_indicators:
+        indicator_words = indicator.split()
+        # Require at least the first word of the intent phrase to match, and allow flexibility
+        if indicator_words[0] in ui:
+            # For "i want to", ensure at least "i" and "want" are present
+            if indicator == "i want to":
+                has_intent = "i" in ui and "want" in ui
+            # For "let's", accept "lets" as a match
+            elif indicator == "let's":
+                has_intent = "lets" in ui or "let's" in ui
+            # For others, require all words but allow flexibility in order
+            else:
+                has_intent = all(word in ui for word in indicator_words)
+            if has_intent:
+                break
+    
     return has_trigger and has_intent
 
 sales_state = {

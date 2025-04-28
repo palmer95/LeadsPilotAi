@@ -125,7 +125,7 @@ export default function App({ company, configUrl }) {
 
         {loading && (
           <div className="loading">
-            Bot is typing<span className="loading-dots">...</span>
+            Clyde is typing<span className="loading-dots">...</span>
           </div>
         )}
 
