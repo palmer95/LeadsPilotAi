@@ -65,9 +65,9 @@ def get_vectorstore(company: str) -> FAISS:
         dirpath = os.path.join(
             os.path.dirname(__file__),
             "vectorstores",
-            company,
+            f"{company}_vectorstore",
             # Load the latest vector store based on timestamp
-            max(os.listdir(os.path.join(os.path.dirname(__file__), "vectorstores", company)))
+            #max(os.listdir(os.path.join(os.path.dirname(__file__), "vectorstores", company)))
         )
         if not os.path.isdir(dirpath):
             logger.error(f"Vectorstore not found: {dirpath}")
