@@ -179,7 +179,7 @@ export default function App({ company, configUrl }) {
 
         <div className="branding">
           <a
-            href="https://leadspilotai.onrender.com"
+            href="https://www.leadspilotai.com/"
             target="_blank"
             rel="noopener noreferrer"
             className="branding-link"
