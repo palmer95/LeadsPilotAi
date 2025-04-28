@@ -14,7 +14,7 @@ with open("leadspilotai_content.txt", "r") as f:
     raw_text = f.read()
 
 # Split the text into smaller chunks (for easier processing by the AI)
-splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50, separators=["\n\n", "\n", ". ", " ", ""], keep_separator=True)
 chunks = splitter.split_text(raw_text)
 
 # Generate embeddings for each chunk using OpenAI's API

@@ -4,170 +4,205 @@ import os
 import smtplib
 from email.message import EmailMessage
 from datetime import datetime
+import logging
 
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("sales_agent.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 PRICING_TRIGGERS = ["how much", "pricing", "cost", "what’s the price"]
+EXIT_INTENTS = ["not ready", "not sure", "maybe later", "stop", "exit", "cancel"]
 
 def send_lead_email(company_name, interested_package, initial_message, full_qa, to_email):
-    #
-    # Sends a “New Lead” email to the team.
-    # Expects these environment vars to be set:
-    #   SMTP_SERVER, SMTP_PORT, SMTP_USER, SMTP_PASS, TEAM_EMAIL
-
-    # Load mail settings from env
+    """Send a 'New Lead' email to the team."""
     SMTP_SERVER = os.getenv("SMTP_SERVER")
-    SMTP_PORT   = int(os.getenv("SMTP_PORT", 465))
-    SMTP_USER   = os.getenv("SMTP_USER")
-    SMTP_PASS   = os.getenv("SMTP_PASS")
-    FROM_EMAIL  = os.getenv("FROM_EMAIL", SMTP_USER)
+    SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
+    SMTP_USER = os.getenv("SMTP_USER")
+    SMTP_PASS = os.getenv("SMTP_PASS")
+    FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USER)
 
     if not all([SMTP_SERVER, SMTP_USER, SMTP_PASS, to_email]):
-        # missing config, fail silently or log
-        print("⚠️ Mail config incomplete, skipping lead email")
+        logger.warning("Mail config incomplete, skipping lead email")
         return
 
-    # Build the email
     msg = EmailMessage()
     msg["Subject"] = f"New lead for {company_name}"
-    msg["From"]    = FROM_EMAIL
-    msg["To"]      = to_email
+    msg["From"] = FROM_EMAIL
+    msg["To"] = to_email
 
     body = f"""
-    New lead for {company_name}
-    Time (UTC): {datetime.utcnow().isoformat()}
+New lead for {company_name}
+Time (UTC): {datetime.utcnow().isoformat()}
 
-    Interested package: {interested_package or 'N/A'}
-    Initial message: {initial_message or 'N/A'}
+Interested package: {interested_package or 'N/A'}
+Initial message: {initial_message or 'N/A'}
 
-    All answers:
-    {full_qa}
-    """
+All answers:
+{full_qa}
+"""
     msg.set_content(body.strip())
 
-    # Send via SMTP SSL
     try:
         with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as smtp:
             smtp.login(SMTP_USER, SMTP_PASS)
             smtp.send_message(msg)
+        logger.info(f"Lead email sent to {to_email}")
     except Exception as e:
-        print("❌ Failed to send lead email:", e)
+        logger.error(f"Failed to send lead email: {e}")
 
 def is_pricing_inquiry(user_input):
+    """Detect pricing-related queries."""
     ui = user_input.lower()
     return any(trigger in ui for trigger in PRICING_TRIGGERS)
 
 def handle_pricing_inquiry(config):
-    # Build the pricing list
+    """Handle pricing inquiries and initiate sales flow with confirmation."""
     lines = [f"{pkg['name']}: {pkg['price']}" for pkg in config["packages"]]
     pricing_text = "Here’s our starting pricing:\n" + "\n".join(lines)
 
     follow_up = (
-        "\n\nDo any of these packages sound like a good fit?\n"
-        "If so, just let me know which one you're interested in and I’ll walk you through booking."
+        "\n\nDoes any of these packages sound like a good fit? "
+        "If you’re ready to proceed, just let me know which one you’re interested in!"
     )
+    sales_state["pending"] = True  # Mark sales flow as pending confirmation
+    sales_state["interested_package"] = None
 
-    # Now start the sales flow
-    first_q = config["qualifying_questions"][0]
-    # mark sales state active
-    sales_state["active"] = True
-    sales_state["question_index"] = 0
-    sales_state["answers"] = []
     return {
-        "response":pricing_text + follow_up
+        "response": pricing_text + follow_up
     }
 
 def extract_package(user_input, config):
+    """Extract package name from user input."""
     ui = user_input.lower()
     for pkg in config["packages"]:
         if pkg["name"].lower() in ui:
             return pkg["name"]
     return None
 
-sales_state = {
-    "active": False,
-    "question_index": 0,
-    "answers": []
-}
+def is_exit_intent(user_input):
+    """Detect if the user wants to exit the sales flow."""
+    ui = user_input.lower()
+    return any(intent in ui for intent in EXIT_INTENTS)
 
 def is_sales_trigger(user_input, config):
-    user_input = user_input.lower()
-    return any(trigger in user_input for trigger in config["sales_triggers"])
+    """Detect sales intent with stricter matching."""
+    ui = user_input.lower()
+    triggers = config["sales_triggers"]
+    # Require a clear intent by checking for additional context
+    intent_indicators = ["i want to", "i’d like to", "can i", "let’s", "ready to"]
+    has_trigger = any(trigger in ui for trigger in triggers)
+    has_intent = any(indicator in ui for indicator in intent_indicators)
+    return has_trigger and has_intent
+
+sales_state = {
+    "active": False,
+    "pending": False,
+    "question_index": 0,
+    "answers": [],
+    "interested_package": None
+}
 
 def start_sales_flow(config, user_input=""):
+    """Start the sales flow after confirmation."""
+    selected_package = extract_package(user_input, config)
+    sales_state["interested_package"] = selected_package or ""
     sales_state["active"] = True
+    sales_state["pending"] = False
     sales_state["question_index"] = 0
     sales_state["answers"] = []
 
-    selected_package = extract_package(user_input, config)
-    sales_state["interested_package"] = selected_package or ""
-
     first_question = config["qualifying_questions"][0]
     return {
-        "response": f"Great! Let's get you set up. {first_question}"
+        "response": f"Great! Let’s get you set up. {first_question}"
     }
 
 def continue_sales_flow(user_input: str, config: dict):
-    """
-    Record the user's answer, advance the question index, and either
-    ask the next qualifier or finish the flow (persist + email + reset).
-    """
-    # 1) Figure out which question we're answering right now
-    idx = sales_state["question_index"]
+    """Continue the sales flow, handling user responses dynamically."""
+    # If in pending state (after pricing inquiry), confirm intent
+    if sales_state["pending"]:
+        selected_package = extract_package(user_input, config)
+        if selected_package:
+            return start_sales_flow(config, user_input)
+        if is_exit_intent(user_input):
+            reset_sales_state()
+            return {
+                "response": "No problem! Let me know how I can assist you further."
+            }
+        return {
+            "response": "Which package would you like to proceed with? Or let me know if you’re not ready yet."
+        }
 
-    # 2) Build the full list of questions (qualifiers + contact)
+    # Record the user's answer
+    idx = sales_state["question_index"]
     total_questions = config["qualifying_questions"] + [
         "What’s your name?",
         "What’s the best phone number or email to reach you?"
     ]
 
-    # 3) Save this answer as a dict {question, answer}
+    # Handle dynamic responses (e.g., user hesitancy)
+    hesitant_phrases = ["not sure", "maybe", "i don’t know"]
+    if any(phrase in user_input.lower() for phrase in hesitant_phrases):
+        return {
+            "response": (
+                "That’s okay! Let’s take a step back. "
+                f"Would you like to know more about {total_questions[idx]} "
+                "or explore something else?"
+            )
+        }
+
     sales_state["answers"].append({
         "question": total_questions[idx],
-        "answer":   user_input
+        "answer": user_input
     })
-
-    # 4) Move to the next question
     sales_state["question_index"] = idx + 1
 
-    # 5) If we still have questions left, ask the next one
+    # Continue with next question or finish
     if sales_state["question_index"] < len(total_questions):
         next_q = total_questions[sales_state["question_index"]]
         return {"response": next_q}
 
-    # 6) All questions answered! Extract pieces for persistence
-    #    - Last two answers are name + contact
-    name    = sales_state["answers"][-2]["answer"]
+    # All questions answered, save lead
+    name = sales_state["answers"][-2]["answer"]
     contact = sales_state["answers"][-1]["answer"]
+    qualifiers = sales_state["answers"][:-2]
 
-    #    - Earlier answers are the qualifiers
-    qualifiers = sales_state["answers"][:-2]  # list of dicts
-
-    # 7) Write to SQLite
-    session = SessionLocal()
-    lead = Lead(
-        company_id=1,  # adjust if you have dynamic IDs
-        name=name,
-        contact=contact,
-        interested_package=sales_state.get("interested_package", ""),
-        details="\n".join(
-            f"{config['qualifying_questions'][i]}: {qualifiers[i]['answer']}"
-            for i in range(len(config["qualifying_questions"]))
+    # Save to SQLite
+    try:
+        session = SessionLocal()
+        lead = Lead(
+            company_id=1,  # TODO: Make dynamic
+            name=name,
+            contact=contact,
+            interested_package=sales_state.get("interested_package", ""),
+            details="\n".join(
+                f"{config['qualifying_questions'][i]}: {qualifiers[i]['answer']}"
+                for i in range(len(config['qualifying_questions']))
+            )
         )
-    )
-    session.add(lead)
-    session.commit()
-    session.close()
+        session.add(lead)
+        session.commit()
+        session.close()
+        logger.info(f"Lead saved for {config['business_name']}: {name}")
+    except Exception as e:
+        logger.error(f"Failed to save lead for {config['business_name']}: {e}")
+        raise
 
-    # 8) Build the email summary
+    # Send lead email
     company_name = config["business_name"]
-    pkg          = sales_state.get("interested_package", "")
-    qa_lines     = "\n\n".join(
+    pkg = sales_state.get("interested_package", "")
+    qa_lines = "\n\n".join(
         f"{item['question']}\n→ {item['answer']}"
         for item in sales_state["answers"]
     )
-    initial_msg  = sales_state["answers"][0]["answer"]
+    initial_msg = sales_state["answers"][0]["answer"]
 
-    # 9) Send the lead email to the client’s team_email
     send_lead_email(
         company_name=company_name,
         interested_package=pkg,
@@ -176,10 +211,9 @@ def continue_sales_flow(user_input: str, config: dict):
         to_email=config["team_email"]
     )
 
-    # 10) Reset the flow state for next time
+    # Reset state
     reset_sales_state()
 
-    # 11) Return the final “thank you” response
     return {
         "response": (
             "Thanks! I’ve passed your info to the team. "
@@ -187,79 +221,12 @@ def continue_sales_flow(user_input: str, config: dict):
         )
     }
 
-# OLD CONTINUE SALES FLOW
-# def continue_sales_flow(user_input, config):
-#     sales_state["answers"].append(user_input)
-#     sales_state["question_index"] += 1
-
-#         # Extend total questions: core + contact
-#     total_questions = config["qualifying_questions"] + [
-#         "What’s your name?",
-#         "What’s the best phone number or email to reach you?"
-#     ]
-
-#     if sales_state["question_index"] < len(total_questions):
-#         next_q = total_questions[sales_state["question_index"]]
-#         return { "response": next_q }
-#     else:
-#         # Last two answers:
-#         name = sales_state["answers"][-2]
-#         contact = sales_state["answers"][-1]
-
-#         # All earlier answers (qualifying questions):
-#         details = sales_state["answers"][:-2]
-
-#         # Write to SqlLite
-#         session = SessionLocal()
-#         lead = Lead(
-#             company_id=1,  # hardcoded or dynamic in future
-#             name=name,
-#             contact=contact,
-#             interested_package=sales_state.get("interested_package", ""),
-#             details="\n".join([
-#                 f"{q}: {a}" for q, a in zip(
-#                     config["qualifying_questions"], details
-#                 )
-#             ])
-#         )
-#         session.add(lead)
-#         session.commit()
-#         session.close()
-
-#         # Email
-#         company_name = config["business_name"]
-#         pkg = sales_state.get("interested_package", "")
-#         # Build a flattened summary of Q&A
-#         qa_lines = "\n".join(
-#             f"{qa['question']}\n→ {qa['answer']}"
-#             for qa in sales_state["answers"]
-#         )
-#         initial_msg = sales_state["answers"][0]["answer"]
-
-#         # Send to the team
-#         send_lead_email(
-#             company_name=company_name,
-#             interested_package=pkg,
-#             initial_message=initial_msg,
-#             full_qa=qa_lines,
-#             to_email=config["team_email"]
-#         )
-
-
-#         reset_sales_state()
-
-#         #print("\n===== NEW LEAD CAPTURED =====")
-#         #print(summary)
-#         #print("=================================\n")
-
-#         return {
-#             "response": f"Thanks! I’ve passed your info to the team. We’ll reach out shortly."
-#         }
-
 def is_active():
     return sales_state["active"]
 
 def reset_sales_state():
     sales_state["active"] = False
+    sales_state["pending"] = False
     sales_state["question_index"] = 0
     sales_state["answers"] = []
+    sales_state["interested_package"] = None
