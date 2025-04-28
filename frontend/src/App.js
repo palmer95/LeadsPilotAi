@@ -1,5 +1,4 @@
 // src/App.js
-
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import "./App.css";
@@ -45,7 +44,6 @@ export default function App({ company, configUrl }) {
   // Core send logic
   const sendMessage = async (msg) => {
     if (!msg.trim() || !config) return;
-    // append the user's message
     setMessages((m) => [...m, { user: msg, bot: "…" }]);
     setLoading(true);
 
@@ -107,26 +105,29 @@ export default function App({ company, configUrl }) {
 
   return (
     <div className="chat-container">
-      <h2>{config.business_name} Chat</h2>
+      <h2 className="chat-header">{config.business_name} Chat</h2>
 
-      <div className="chat-box" ref={chatBoxRef}>
+      <div className="chat-box" ref={chatBoxRef} aria-live="polite">
         {messages.map((m, i) => (
           <div key={i} className="message-pair">
             {m.user && (
               <div className="user-msg">
-                <strong>You:</strong> {m.user}
+                <span className="message-label">You:</span> {m.user}
               </div>
             )}
             {m.bot && (
               <div className="bot-msg">
-                <strong>Clyde:</strong> {m.bot}
+                <span className="message-label">Clyde:</span> {m.bot}
               </div>
             )}
-            <hr />
           </div>
         ))}
 
-        {loading && <div className="loading">Bot is typing…</div>}
+        {loading && (
+          <div className="loading">
+            Bot is typing<span className="loading-dots">...</span>
+          </div>
+        )}
 
         {messages.length === 1 && (
           <>
@@ -138,6 +139,7 @@ export default function App({ company, configUrl }) {
                   onClick={() => handleFAQClick(q)}
                   className="faq-button"
                   disabled={loading}
+                  aria-label={`Ask: ${q}`}
                 >
                   {q}
                 </button>
@@ -154,18 +156,37 @@ export default function App({ company, configUrl }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Ask something…"
           disabled={loading}
+          aria-label="Type your message"
         />
 
         <div className="chat-form-buttons">
-          <button type="button" onClick={handleReset} disabled={loading}>
+          <button
+            type="button"
+            onClick={handleReset}
+            disabled={loading}
+            aria-label="Reset chat"
+          >
             Reset Chat
           </button>
-          <button type="submit" disabled={!query.trim() || loading}>
+          <button
+            type="submit"
+            disabled={!query.trim() || loading}
+            aria-label="Send message"
+          >
             Send
           </button>
         </div>
 
-        <div className="branding">Powered by LeadsPilotAI</div>
+        <div className="branding">
+          <a
+            href="https://leadspilotai.onrender.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="branding-link"
+          >
+            Powered by LeadsPilotAI
+          </a>
+        </div>
       </form>
     </div>
   );
