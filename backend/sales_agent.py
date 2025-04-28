@@ -179,11 +179,13 @@ def continue_sales_flow(user_input: str, config: dict, qa_response: str = None):
 
     # Engaged state: user has shown interest but hasn't committed to booking
     if sales_state["state"] == "engaged":
+        # Check for package mention AND booking intent
         selected_package = extract_package(user_input, config)
-        if selected_package:
+        has_booking_intent = is_sales_trigger(user_input, config)
+        if selected_package and has_booking_intent:
             sales_state["last_mentioned_package"] = selected_package
             return start_sales_flow(config, user_input)
-        # If not a package selection or exit intent, treat as an informational query
+        # If no clear booking intent, treat as an informational query
         sales_state["last_action"] = "informational_query"
         return {
             "response": "__INFORMATIONAL_QUERY__"
