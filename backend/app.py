@@ -148,17 +148,11 @@ def chat():
         return jsonify(sales_agent.handle_pricing_inquiry(CONFIG))
 
     # Handle sales triggers (transition to booking state)
-    if sales_agent.sales_state["state"] in ["idle", "exited", "engaged"]:
-        sales_trigger = sales_agent.is_sales_trigger(user_input, CONFIG)
-        logger.info(f"Sales trigger check for {company}: {user_input} → {sales_trigger}")
-        if sales_trigger:
-            try:
+    if sales_agent.sales_state["state"] in ["idle", "exited"]:
+        if sales_agent.is_sales_trigger(user_input, CONFIG):
+                logger.info(f"Sales trigger check for {company}: {user_input} → {sales_agent.is_sales_trigger(CONFIG, user_input)}")
                 result = sales_agent.start_sales_flow(CONFIG, user_input)
-                logger.info(f"Started sales flow for {company}: {user_input}")
                 return jsonify(result)
-            except Exception as e:
-                logger.exception(f"Error in start_sales_flow for {company}")
-                return jsonify({"response": "Sorry, I couldn’t start the booking process. Let’s try something else."}), 500
 
     # Continue sales flow if in engaged or booking state
     if sales_agent.sales_state["state"] in ["engaged", "booking"]:
@@ -183,8 +177,10 @@ def chat():
 
                 fallback_phrases = [
                     "i'm not sure", "i do not have that information",
-                    "i don't have specific information", "i don't know"
+                    "i don't have specific information", "i don't know",
+                    "i'm sorry", "i don't have information"
                 ]
+
                 if (not response_text or
                     any(phrase in response_text.lower() for phrase in fallback_phrases)):
                     logger.info(f"QA response uncertain, triggering fallback for {company}")
