@@ -49,8 +49,9 @@ def extract_package(text: str, config: dict) -> str | None:
         if any(w in ui for w in words):
             sales_state["last_mentioned_package"] = name
             return name
-    # Fallback: "that" refers to last mentioned
-    if "that" in ui and sales_state.get("last_mentioned_package"):
+    # Fallback: "that, this, it" refers to last mentioned
+    pronouns = ["that", "it", "this"]
+    if any(p in ui.split() for p in pronouns) and sales_state.get("last_mentioned_package"):
         return sales_state["last_mentioned_package"]
     return None
 
