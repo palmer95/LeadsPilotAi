@@ -10,51 +10,69 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-urls = [
-  "https://virtourmedia.com/",
-  "https://virtourmedia.com/how-it-works/",
-  "https://virtourmedia.com/services/",
-  "https://agent.virtourmedia.com/order"
-]
 
+# CHANGE PER CLIENT
+slug = os.getenv("COMPANY_SLUG", "leadspilotai")
+faq_path = os.path.join("clients", "faqs", f"{slug}.json")
+
+# ───────────────────────────────────────────────────────────────
+# 1) Scrape & clean the main site (multiple URLs)
+# ───────────────────────────────────────────────────────────────
+
+# CHANGE PER CLIENT
+urls = [
+    "https://www.leadspilotai.com/",
+    "https://www.leadspilotai.com/product",
+    "https://www.leadspilotai.com/pricing",
+]
 all_blocks = []
 for url in urls:
     html = fetch_url(url)
     text = extract(html) or ""
     all_blocks.append(text)
-
 site_text = "\n\n".join(all_blocks)
 
-# 1) Scrape & clean the main site
-#raw_html = fetch_url("https://www.leadspilotai.com")
-#site_text = extract(raw_html) or ""
-
-# 2) Break into logical blocks, drop noise
+# ───────────────────────────────────────────────────────────────
+# 2) Break into logical blocks, drop obvious noise
+# ───────────────────────────────────────────────────────────────
 blocks = []
 for section in site_text.split("\n\n"):
     text = section.strip()
-    if len(text) < 50:                # too short
+    if len(text) < 50:
         continue
     if text.startswith("http") or "@" in text or text.upper() == text:
-        continue                     # URLs, emails, all‐caps disclaimers
+        continue
     blocks.append(text)
 cleaned_site = "\n\n".join(blocks)
 
-# 3) Load & clean your JSON FAQs
-with open("extra_faqs.json", "r") as f:
-    faq_list = json.load(f)
-
+# ───────────────────────────────────────────────────────────────
+# 3) Optionally load & format per-client FAQs
+# ───────────────────────────────────────────────────────────────
 faq_paragraphs = []
-for item in faq_list:
-    q = item.get("question", "").strip()
-    a = item.get("answer", "").strip()
-    if len(q) < 10 or len(a) < 20:
-        continue
-    faq_paragraphs.append(f"Q: {q}\nA: {a}")
+if os.path.isfile(faq_path):
+    try:
+        with open(faq_path, "r") as f:
+            faq_list = json.load(f)
+        for item in faq_list:
+            q = item.get("question", "").strip()
+            a = item.get("answer", "").strip()
+            # skip too-short entries
+            if len(q) < 10 or len(a) < 20:
+                continue
+            faq_paragraphs.append(f"Q: {q}\nA: {a}")
+    except Exception as e:
+        print(f"⚠️ Failed to load {faq_path}: {e}")
+
 cleaned_faqs = "\n\n".join(faq_paragraphs)
 
-# 4) Combine & dedupe lines
-combined = cleaned_faqs + "\n\n" + cleaned_site
+# ───────────────────────────────────────────────────────────────
+# 4) Combine FAQs + site content, dedupe lines
+# ───────────────────────────────────────────────────────────────
+if cleaned_faqs:
+    combined = cleaned_faqs + "\n\n" + cleaned_site
+else:
+    combined = cleaned_site
+
 seen = set()
 unique_lines = []
 for line in combined.splitlines():
@@ -63,15 +81,23 @@ for line in combined.splitlines():
         continue
     seen.add(t)
     unique_lines.append(t)
+
 deduped_text = "\n".join(unique_lines)
 
+# ───────────────────────────────────────────────────────────────
 # 5) Chunk for embeddings
+# ───────────────────────────────────────────────────────────────
 splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
 chunks   = splitter.split_text(deduped_text)
 
+# ───────────────────────────────────────────────────────────────
 # 6) Embed & save vectorstore
+# ───────────────────────────────────────────────────────────────
 embeddings  = OpenAIEmbeddings()
 vectorstore = FAISS.from_texts(chunks, embeddings)
-vectorstore.save_local("virtour_vectorstore")
 
-print(f"✅ Cleaned & embedded {len(chunks)} chunks.")
+# save under a client‐specific name
+out_dir = f"{slug}_vectorstore"
+vectorstore.save_local(out_dir)
+
+print(f"✅ Cleaned & embedded {len(chunks)} chunks into `{out_dir}`.")
