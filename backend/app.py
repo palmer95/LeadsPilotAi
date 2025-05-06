@@ -143,14 +143,18 @@ def chat():
     user_input = query.lower()
 
     # Handle pricing inquiries (transition to engaged state)
-    if sales_agent.sales_state["state"] in ["idle", "exited"] and sales_agent.is_pricing_inquiry(user_input):
+    if sales_agent.sales_state["state"] in ["idle", "excited"] and sales_agent.is_pricing_inquiry(user_input):
         logger.info(f"Pricing inquiry detected for {company}: {user_input}")
         return jsonify(sales_agent.handle_pricing_inquiry(CONFIG))
+    
+    # 2) Suggested‐FAQ clicks → always QA, never sales
+    if sales_agent.sales_state["state"] in ["idle", "excited"] and user_input in CONFIG.get("faqs", []):
+        answer = qa_chain({"question": user_input}).get("answer", "")
+        return jsonify({"response": answer})
 
     # Handle sales triggers (transition to booking state)
     if sales_agent.sales_state["state"] in ["idle", "exited"]:
         if sales_agent.is_sales_trigger(user_input, CONFIG):
-                logger.info(f"Sales trigger check for {company}: {user_input} → {sales_agent.is_sales_trigger(CONFIG, user_input)}")
                 result = sales_agent.start_sales_flow(CONFIG, user_input)
                 return jsonify(result)
 
