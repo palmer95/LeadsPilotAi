@@ -43,10 +43,17 @@ if not OPENAI_API_KEY:
 app = Flask(__name__)
 app.config['SERVER_NAME'] = 'www.leadspilotai.com'
 app.secret_key = os.getenv("FLASK_SECRET_KEY") 
-CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", 
-                                         "https://www.leadspilotai.com",
-                                         "https://leadspilotai.onrender.com"],}}, supports_credentials=True)
-
+CORS(
+    app,
+    resources={r"/*": {"origins": [
+        "http://localhost:3000", 
+        "https://www.leadspilotai.com"
+    ]}},
+    supports_credentials=True,
+    expose_headers=["Set-Cookie"],
+    allow_headers=["Content-Type", "Authorization"],
+    methods=["GET", "POST", "OPTIONS"],
+)
 # API /api endpoints
 app.register_blueprint(onboard_bp)
 app.register_blueprint(admin_auth_bp)
