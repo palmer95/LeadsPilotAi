@@ -123,6 +123,10 @@ def start_sales_flow(config: dict, user_input: str | None = None) -> dict:
     """Begin booking or prompt package choice."""
     sales_state["state"] = "booking"
     pkg = extract_package(user_input or "", config)
+
+    if not pkg and sales_state.get("last_mentioned_package"):
+        pkg = sales_state["last_mentioned_package"]
+
     if pkg:
         sales_state["interested_package"] = pkg
         ques = config["qualifying_questions"][0]
@@ -182,14 +186,30 @@ def continue_sales_flow(user_input: str, config: dict, qa_response: str = None) 
 
         # save to DB
         session = SessionLocal()
+
+        payload = {
+                "interested_package": sales_state.get("interested_package"),
+                "qualifiers": qualifiers
+        }
+
+        # lead = Lead(
+        #     company_id=1,
+        #     name=name, contact=contact,
+        #     interested_package=sales_state["interested_package"] or "",
+        #     details="\n".join(f"{q['question']}: {q['answer']}" for q in qualifiers),
+        #     created_at=datetime.utcnow()
+        # )
+
         lead = Lead(
-            company_id=1,
-            name=name, contact=contact,
-            interested_package=sales_state["interested_package"] or "",
-            details="\n".join(f"{q['question']}: {q['answer']}" for q in qualifiers),
-            created_at=datetime.utcnow()
+            client_id=1,             # or dynamically look up client.id
+            name=name,
+            email=contact,
+            responses=payload
         )
-        session.add(lead); session.commit(); session.close()
+
+        session.add(lead)
+        session.commit() 
+        session.close()
 
         # email summary
         full_qa = "\n\n".join(f"{q['question']} → {q['answer']}" for q in info)

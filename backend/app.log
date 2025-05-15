@@ -1,0 +1,85 @@
+2025-05-12 19:35:41,723 - WARNING -  * Debugger is active!
+2025-05-12 19:35:41,728 - INFO -  * Debugger PIN: 313-584-609
+2025-05-13 12:10:14,308 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/app.py', reloading
+2025-05-13 12:10:15,610 - WARNING -  * Debugger is active!
+2025-05-13 12:10:15,616 - INFO -  * Debugger PIN: 313-584-609
+2025-05-13 14:16:48,736 - INFO - 127.0.0.1 - - [13/May/2025 14:16:48] "[35m[1mPOST /api/onboard HTTP/1.1[0m" 201 -
+2025-05-15 12:21:48,091 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/reset_admins.py', reloading
+2025-05-15 12:21:50,423 - WARNING -  * Debugger is active!
+2025-05-15 12:21:50,432 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 12:22:15,800 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/reset_admins.py', reloading
+2025-05-15 12:22:17,019 - WARNING -  * Debugger is active!
+2025-05-15 12:22:17,025 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 12:49:59,516 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/onboard.py', reloading
+2025-05-15 12:50:00,843 - WARNING -  * Debugger is active!
+2025-05-15 12:50:00,849 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 12:50:18,467 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5050
+ * Running on http://192.168.40.6:5050
+2025-05-15 12:50:18,467 - INFO - [33mPress CTRL+C to quit[0m
+2025-05-15 12:50:18,468 - INFO -  * Restarting with stat
+2025-05-15 12:50:19,267 - WARNING -  * Debugger is active!
+2025-05-15 12:50:19,272 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 12:50:41,426 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/onboard.py', reloading
+2025-05-15 12:50:41,592 - INFO -  * Restarting with stat
+2025-05-15 12:50:42,941 - WARNING -  * Debugger is active!
+2025-05-15 12:50:42,944 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 12:57:08,822 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5050
+ * Running on http://192.168.40.6:5050
+2025-05-15 12:57:08,823 - INFO - [33mPress CTRL+C to quit[0m
+2025-05-15 12:57:08,824 - INFO -  * Restarting with stat
+2025-05-15 12:57:09,800 - WARNING -  * Debugger is active!
+2025-05-15 12:57:09,805 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 12:58:13,234 - INFO - 127.0.0.1 - - [15/May/2025 12:58:13] "[35m[1mPOST /api/onboard HTTP/1.1[0m" 201 -
+2025-05-15 13:02:18,687 - INFO - 127.0.0.1 - - [15/May/2025 13:02:18] "[31m[1mGET /api/admin/login-with-token?token=V-vIJCMU12NIDK_ci_urM3BDsEmoujNXUtkmsDARX0A HTTP/1.1[0m" 405 -
+2025-05-15 13:02:18,939 - INFO - 127.0.0.1 - - [15/May/2025 13:02:18] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-05-15 13:03:35,392 - INFO - 127.0.0.1 - - [15/May/2025 13:03:35] "OPTIONS /api/admin/login-with-token HTTP/1.1" 200 -
+2025-05-15 13:08:09,915 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/onboard.py', reloading
+2025-05-15 13:08:10,107 - INFO -  * Restarting with stat
+2025-05-15 13:08:11,239 - WARNING -  * Debugger is active!
+2025-05-15 13:08:11,243 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 13:40:36,657 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/app.py', reloading
+2025-05-15 13:40:36,867 - INFO -  * Restarting with stat
+2025-05-15 13:40:37,990 - WARNING -  * Debugger is active!
+2025-05-15 13:40:37,995 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 13:40:43,567 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5050
+ * Running on http://192.168.40.6:5050
+2025-05-15 13:40:43,567 - INFO - [33mPress CTRL+C to quit[0m
+2025-05-15 13:40:43,568 - INFO -  * Restarting with stat
+2025-05-15 13:40:44,441 - WARNING -  * Debugger is active!
+2025-05-15 13:40:44,452 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 13:41:27,581 - INFO - 127.0.0.1 - - [15/May/2025 13:41:27] "OPTIONS /api/admin/login-with-token HTTP/1.1" 200 -
+2025-05-15 13:42:06,610 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/app.py', reloading
+2025-05-15 13:42:06,851 - INFO -  * Restarting with stat
+2025-05-15 13:42:08,121 - WARNING -  * Debugger is active!
+2025-05-15 13:42:08,127 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 13:43:28,174 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/app.py', reloading
+2025-05-15 13:43:28,357 - INFO -  * Restarting with stat
+2025-05-15 13:43:29,423 - WARNING -  * Debugger is active!
+2025-05-15 13:43:29,433 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 13:43:47,497 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/app.py', reloading
+2025-05-15 13:43:47,663 - INFO -  * Restarting with stat
+2025-05-15 13:43:48,778 - WARNING -  * Debugger is active!
+2025-05-15 13:43:48,781 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 13:44:51,097 - INFO - 127.0.0.1 - - [15/May/2025 13:44:51] "OPTIONS /api/admin/login-with-token HTTP/1.1" 200 -
+2025-05-15 13:49:29,206 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/onboard.py', reloading
+2025-05-15 13:49:29,390 - INFO -  * Restarting with stat
+2025-05-15 13:49:30,513 - WARNING -  * Debugger is active!
+2025-05-15 13:49:30,518 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 13:50:26,383 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/onboard.py', reloading
+2025-05-15 13:50:26,552 - INFO -  * Restarting with stat
+2025-05-15 13:50:27,507 - WARNING -  * Debugger is active!
+2025-05-15 13:50:27,511 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 13:51:49,353 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/app.py', reloading
+2025-05-15 13:51:49,550 - INFO -  * Restarting with stat
+2025-05-15 13:51:50,671 - WARNING -  * Debugger is active!
+2025-05-15 13:51:50,675 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 13:52:06,587 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/app.py', reloading
+2025-05-15 13:52:06,756 - INFO -  * Restarting with stat
+2025-05-15 13:52:07,693 - WARNING -  * Debugger is active!
+2025-05-15 13:52:07,698 - INFO -  * Debugger PIN: 313-584-609

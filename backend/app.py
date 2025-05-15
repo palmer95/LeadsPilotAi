@@ -12,7 +12,14 @@ from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
 from datetime import datetime
 
+from onboard import bp as onboard_bp
+from admin_auth import bp as admin_auth_bp
+from admin_calendar import bp as calendar_bp
+
+
+
 import sales_agent
+
 
 # Set up logging
 logging.basicConfig(
@@ -34,7 +41,16 @@ if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY is required.")
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
+app.config['SERVER_NAME'] = 'www.leadspilotai.com'
+app.secret_key = os.getenv("FLASK_SECRET_KEY") 
+CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", 
+                                         "https://www.leadspilotai.com"],}}, supports_credentials=True)
+
+# API /api endpoints
+app.register_blueprint(onboard_bp)
+app.register_blueprint(admin_auth_bp)
+app.register_blueprint(calendar_bp)
+
 
 # Caches for vector stores and configs
 _vectorstore_cache: dict[str, FAISS] = {}
@@ -153,7 +169,7 @@ def chat():
         return jsonify({"response": answer})
 
     # Handle sales triggers (transition to booking state)
-    if sales_agent.sales_state["state"] in ["idle", "exited"]:
+    if sales_agent.sales_state["state"] in ["idle", "excited"]:
         if sales_agent.is_sales_trigger(user_input, CONFIG):
                 result = sales_agent.start_sales_flow(CONFIG, user_input)
                 return jsonify(result)
@@ -220,7 +236,7 @@ Respond as Clyde.
             logger.exception(f"Error in continue_sales_flow for {company}")
             return jsonify({"response": "Sorry, I couldn’t continue the booking process. Let’s try something else."}), 500
 
-    # Normal QA for idle or exited state
+    # Normal QA for idle or excited state
     try:
         logger.info(f"Processing QA for {company}: {user_input}")
         result = qa_chain({"question": user_input})
