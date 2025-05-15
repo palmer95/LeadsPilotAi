@@ -298,18 +298,6 @@ def reset():
     logger.info(f"Reset sales flow and chat history for {company}")
     return jsonify({"message": "Sales flow and chat history reset."})
 
-@app.route("/api/reset-db", methods=["POST"])
-def reset_db():
-    from db import AdminUser,Client  # update with your actual import
-
-    try:
-        AdminUser.drop_all()
-        AdminUser.create_all()
-        Client.drop_all()
-        Client.create_all()
-        return {"status": "Database reset successful"}
-    except Exception as e:
-        return {"error": str(e)}, 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5050)
