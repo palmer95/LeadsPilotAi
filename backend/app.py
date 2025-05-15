@@ -44,7 +44,8 @@ app = Flask(__name__)
 app.config['SERVER_NAME'] = 'www.leadspilotai.com'
 app.secret_key = os.getenv("FLASK_SECRET_KEY") 
 CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", 
-                                         "https://www.leadspilotai.com"],}}, supports_credentials=True)
+                                         "https://www.leadspilotai.com",
+                                         "https://leadspilotai.onrender.com"],}}, supports_credentials=True)
 
 # API /api endpoints
 app.register_blueprint(onboard_bp)
