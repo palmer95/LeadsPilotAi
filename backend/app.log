@@ -99,3 +99,19 @@
 2025-05-15 15:49:28,687 - INFO -  * Restarting with stat
 2025-05-15 15:49:29,905 - WARNING -  * Debugger is active!
 2025-05-15 15:49:29,909 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 16:01:25,258 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/app.py', reloading
+2025-05-15 16:01:25,517 - INFO -  * Restarting with stat
+2025-05-15 16:01:26,616 - WARNING -  * Debugger is active!
+2025-05-15 16:01:26,621 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 16:01:35,096 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/app.py', reloading
+2025-05-15 16:01:35,269 - INFO -  * Restarting with stat
+2025-05-15 16:01:36,123 - WARNING -  * Debugger is active!
+2025-05-15 16:01:36,128 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 16:02:23,609 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/app.py', reloading
+2025-05-15 16:02:23,777 - INFO -  * Restarting with stat
+2025-05-15 16:02:24,808 - WARNING -  * Debugger is active!
+2025-05-15 16:02:24,812 - INFO -  * Debugger PIN: 313-584-609
+2025-05-15 16:02:53,334 - INFO -  * Detected change in '/Users/palmerj/Desktop/Projects/chatbots/product/backend/app.py', reloading
+2025-05-15 16:02:53,513 - INFO -  * Restarting with stat
+2025-05-15 16:02:54,633 - WARNING -  * Debugger is active!
+2025-05-15 16:02:54,660 - INFO -  * Debugger PIN: 313-584-609

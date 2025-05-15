@@ -43,17 +43,22 @@ if not OPENAI_API_KEY:
 app = Flask(__name__)
 app.config['SERVER_NAME'] = 'www.leadspilotai.com'
 app.secret_key = os.getenv("FLASK_SECRET_KEY") 
-CORS(
-    app,
-    resources={r"/*": {"origins": [
-        "http://localhost:3000", 
-        "https://www.leadspilotai.com"
-    ]}},
-    supports_credentials=True,
-    expose_headers=["Set-Cookie"],
-    allow_headers=["Content-Type", "Authorization"],
-    methods=["GET", "POST", "OPTIONS"],
-)
+# Enable CORS
+CORS(app, supports_credentials=True)  # This allows credentials but will be controlled dynamically
+
+@app.after_request
+def apply_custom_cors(response):
+    origin = request.headers.get("Origin")
+    allowed_origins = ["https://www.leadspilotai.com"]
+
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = ["GET, POST, OPTIONS"]
+        response.headers["Access-Control-Allow-Headers"] = ["Content-Type, Authorization"]
+
+    return response
+
 # API /api endpoints
 app.register_blueprint(onboard_bp)
 app.register_blueprint(admin_auth_bp)
