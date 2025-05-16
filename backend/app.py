@@ -56,19 +56,29 @@ def apply_cors_headers(response):
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
+    
+    logger.info(f"CORS Applied for Origin: {origin} → {response.headers.get('Access-Control-Allow-Origin')}")
+    logger.info(f"Allowed Methods: {response.headers.get('Access-Control-Allow-Methods')}")
+    logger.info(f"Allowed Headers: {response.headers.get('Access-Control-Allow-Headers')}")
 
     return response
 
-# 🚀 Preflight Handler for OPTIONS (Solves the Preflight Error)
+# 🚀 Explicit Preflight Handler for OPTIONS (SOLVES PRE-FLIGHT ISSUES)
 @app.route('/api/<path:path>', methods=['OPTIONS'])
 def handle_preflight(path):
     response = jsonify({"message": "Preflight handled."})
     response.status_code = 204
-    response.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin")
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
+    origin = request.headers.get("Origin")
+    allowed_origins = ["https://www.leadspilotai.com", "https://leadspilotai.onrender.com"]
+
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
+
     return response
+
 # API /api endpoints
 app.register_blueprint(onboard_bp)
 app.register_blueprint(admin_auth_bp)
