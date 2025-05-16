@@ -41,8 +41,11 @@ if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY is required.")
 
 app = Flask(__name__)
-app.config['SERVER_NAME'] = 'www.leadspilotai.com'
-app.secret_key = os.getenv("FLASK_SECRET_KEY") 
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "super-secret-key")
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "None"  # Required for cross-site cookies
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_NAME"] = "leadspilot_session"
 # Enable CORS
 CORS(app, supports_credentials=True)  # This allows credentials but will be controlled dynamically
 
@@ -51,12 +54,15 @@ def apply_cors_headers(response):
     origin = request.headers.get("Origin")
     allowed_origins = ["https://www.leadspilotai.com", "https://leadspilotai.onrender.com"]
 
+    # Ensure that the Origin header is correctly set
     if origin in allowed_origins:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
-    
+        response.headers["Vary"] = "Origin"  # Important to vary the origin for credentials
+
+    # 🔥 Debug CORS logs
     logger.info(f"CORS Applied for Origin: {origin} → {response.headers.get('Access-Control-Allow-Origin')}")
     logger.info(f"Allowed Methods: {response.headers.get('Access-Control-Allow-Methods')}")
     logger.info(f"Allowed Headers: {response.headers.get('Access-Control-Allow-Headers')}")
