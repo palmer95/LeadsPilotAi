@@ -15,6 +15,7 @@ from datetime import datetime
 from onboard import bp as onboard_bp
 from admin_auth import bp as admin_auth_bp
 from admin_calendar import bp as calendar_bp
+from admin_routes import bp as admin_routes_bp
 
 
 
@@ -89,6 +90,8 @@ def handle_preflight(path):
 app.register_blueprint(onboard_bp)
 app.register_blueprint(admin_auth_bp)
 app.register_blueprint(calendar_bp)
+app.register_blueprint(admin_routes_bp)
+
 
 
 # Caches for vector stores and configs
