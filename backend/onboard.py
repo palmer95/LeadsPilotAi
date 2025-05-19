@@ -96,7 +96,7 @@ def onboard():
 
     # 4) send the invite
     FRONTEND_URL = os.getenv("FRONTEND_URL", "www.leadspilotai.com")
-    invite_link = f"{FRONTEND_URL}/admin/login?token={token}"
+    invite_link = f"{FRONTEND_URL}/admin/setup?token={token}"
     send_invite_email(name, invite_link, admin_email)
 
     return jsonify({'success': True}), 201
