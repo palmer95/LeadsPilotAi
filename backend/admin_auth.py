@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify, session
 from datetime import datetime, timezone
 from db import SessionLocal, AdminUser
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 bp = Blueprint('admin_auth', __name__, url_prefix='/api/admin')
 
@@ -36,3 +36,40 @@ def login_with_token():
     session["admin_client_slug"] = user.client.slug
 
     return jsonify({"success": True})
+
+@bp.route('/login', methods=['POST'])
+def login():
+    data = request.get_json() or {}
+    email = data.get("email")
+    password = data.get("password")
+
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+
+    db = SessionLocal()
+    user = db.query(AdminUser).filter_by(email=email).first()
+
+    if not user or not check_password_hash(user.password_hash, password):
+        return jsonify({"error": "Invalid email or password"}), 401
+
+    # 1) Establish session
+    session.clear()
+    session["admin_user_id"] = user.id
+    session["admin_client_slug"] = user.client.slug
+
+    return jsonify({"success": True})
+
+@bp.route('/check-session', methods=['GET'])
+def check_session():
+    """Checks if the user is logged in via session."""
+    if "admin_user_id" in session:
+        return jsonify({"logged_in": True})
+    return jsonify({"logged_in": False}), 401
+
+
+@bp.route('/logout', methods=['POST'])
+def logout():
+    """Logs out the current user by clearing the session."""
+    session.clear()
+    return jsonify({"success": True})
+

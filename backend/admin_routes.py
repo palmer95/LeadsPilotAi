@@ -29,6 +29,21 @@ def login():
 
     return jsonify({"success": True})
 
+@bp.route('/check-session', methods=['GET'])
+def check_session():
+    """Checks if the user is logged in via session."""
+    if "admin_user_id" in session:
+        return jsonify({"logged_in": True})
+    return jsonify({"logged_in": False}), 401
+
+# backend/admin_auth.py
+
+@bp.route('/logout', methods=['POST'])
+def logout():
+    """Logs out the current user by clearing the session."""
+    session.clear()
+    return jsonify({"success": True})
+
 
 @bp.route('/leads', methods=['GET'])
 def get_leads():
