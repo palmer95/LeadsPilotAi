@@ -4,7 +4,7 @@ from flask import Blueprint, redirect, request, session, jsonify
 import os
 import google.auth.transport.requests
 from google_auth_oauthlib.flow import Flow
-from db import SessionLocal, AdminUser
+from db import SessionLocal, AdminUser, Client
 
 bp = Blueprint('calendar', __name__, url_prefix='/api/admin/calendar')
 
@@ -80,3 +80,37 @@ def oauth_callback():
     }
     db.commit()
     return redirect("/admin")  # or wherever you want
+
+@bp.route("/status", methods=["GET"])
+def calendar_status():
+    admin_user_id = session.get("admin_user_id")
+    client_slug = session.get("admin_client_slug")
+
+    if not admin_user_id or not client_slug:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    db = SessionLocal()
+    client = db.query(Client).filter_by(slug=client_slug).first()
+    db.close()
+
+    return jsonify({"connected": bool(client and client.calendar_tokens)})
+
+@bp.route("", methods=["GET"])
+def calendar_details():
+    admin_user_id = session.get("admin_user_id")
+    client_slug = session.get("admin_client_slug")
+
+    if not admin_user_id or not client_slug:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    db = SessionLocal()
+    client = db.query(Client).filter_by(slug=client_slug).first()
+    db.close()
+
+    if not client or not client.calendar_tokens:
+        return jsonify({"error": "No calendar connected"}), 404
+
+    return jsonify({
+        "calendar_id": client.calendar_id,
+        "tokens": client.calendar_tokens,
+    })
