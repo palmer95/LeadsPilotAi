@@ -54,6 +54,7 @@ def login():
 
     # 1) Establish session
     session.clear()
+    session.permanent = True
     session["admin_user_id"] = user.id
     session["admin_client_slug"] = user.client.slug
 

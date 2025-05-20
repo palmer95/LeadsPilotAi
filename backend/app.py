@@ -43,9 +43,10 @@ if not OPENAI_API_KEY:
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "super-secret-key")
-app.config["SESSION_COOKIE_SECURE"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "None"  # Required for cross-site cookies
 app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # Required for cross-site cookies
+app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session expiry
 app.config["SESSION_COOKIE_NAME"] = "leadspilot_session"
 # Enable CORS
 CORS(app, supports_credentials=True)  # This allows credentials but will be controlled dynamically
