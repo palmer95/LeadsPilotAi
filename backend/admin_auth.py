@@ -25,7 +25,7 @@ def login_with_token():
         return jsonify({"error": "Invite token has expired"}), 401
 
     # 1) Hash & save the new password
-    user.password_hash        = generate_password_hash(password)
+    user.password_hash        = password
     user.invite_token         = None
     user.invite_token_expiry  = None
     db.commit()
@@ -49,14 +49,15 @@ def login():
     db = SessionLocal()
     user = db.query(AdminUser).filter_by(email=email).first()
 
-    if not user or not check_password_hash(user.password_hash, password):
+    if not user:
         return jsonify({"error": "Invalid email or password"}), 401
-
-    # 1) Establish session
-    session.clear()
-    session.permanent = True
-    session["admin_user_id"] = user.id
-    session["admin_client_slug"] = user.client.slug
+    
+    if user.password_hash == password:
+        # 1) Establish session
+        session.clear()
+        session.permanent = True
+        session["admin_user_id"] = user.id
+        session["admin_client_slug"] = user.client.slug
 
     return jsonify({"success": True})
 
