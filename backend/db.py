@@ -1,3 +1,4 @@
+import os
 from sqlalchemy import (
     create_engine,
     Column,
@@ -11,10 +12,13 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from datetime import datetime
-from werkzeug.security import generate_password_hash, check_password_hash
+
+# Use an absolute path for SQLite
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "leads.db")
 
 # SQLite DB
-engine = create_engine("sqlite:///leads.db", echo=False)
+engine = create_engine(f"sqlite:///{DB_PATH}", echo=False)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 

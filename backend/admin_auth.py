@@ -2,8 +2,12 @@
 
 from flask import Blueprint, request, jsonify, session
 from datetime import datetime, timezone
-from db import SessionLocal, AdminUser
+from db import SessionLocal, AdminUser, DB_PATH
 from werkzeug.security import generate_password_hash, check_password_hash
+import logging
+
+logger = logging.getLogger(__name__)
+logger.info(f"Database Path in {__file__}: {DB_PATH}")
 
 bp = Blueprint('admin_auth', __name__, url_prefix='/api/admin')
 

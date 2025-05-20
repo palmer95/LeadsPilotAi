@@ -5,7 +5,11 @@ import os
 import smtplib
 from datetime import datetime
 from email.message import EmailMessage
-from db import SessionLocal, Lead  # Your SQLAlchemy models
+from db import SessionLocal, Lead, Client, DB_PATH  # Your SQLAlchemy models
+import logging
+
+logger = logging.getLogger(__name__)
+logger.info(f"Database Path in {__file__}: {DB_PATH}")
 
 # ───────────────────────────────────────────────────────────────
 # 1) State & Reset
@@ -200,16 +204,18 @@ def continue_sales_flow(user_input: str, config: dict, qa_response: str = None) 
         #     created_at=datetime.utcnow()
         # )
 
-        lead = Lead(
-            client_id=1,             # or dynamically look up client.id
-            name=name,
-            email=contact,
-            responses=payload
-        )
+        try: 
+            lead = Lead(
+                client_id=1,             # or dynamically look up client.id
+                name=name,
+                email=contact,
+                responses=payload
+            )
 
-        session.add(lead)
-        session.commit() 
-        session.close()
+            session.add(lead)
+            session.commit()
+        finally: 
+            session.close()
 
         # email summary
         full_qa = "\n\n".join(f"{q['question']} → {q['answer']}" for q in info)
