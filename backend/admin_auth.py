@@ -14,8 +14,8 @@ client = MongoClient(mongo_uri)
 db = client['leadsPilotAI']
 
 # MongoDB Collection
-admin_users_collection = client['leadspilotai']['admin_users']
-clients_collection = client['leadspilotai']['clients']
+admin_users_collection = db['admin_users']  # Assuming you have 'db' already set up correctly as the client
+clients_collection = db['clients']
 
 logger = logging.getLogger(__name__)
 logger.info(f"MongoDB URI in {__file__}: {mongo_uri}")
@@ -35,6 +35,7 @@ def login_with_token():
         return jsonify({"error": "token and password are required"}), 400
 
     # Find user by token
+    logger.info(f"querying admin collection: {admin_users_collection}")
     user = admin_users_collection.find_one({"invite_token": token})
     logger.info(f"Found user: {user}")
     if not user:
