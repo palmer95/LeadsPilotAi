@@ -14,8 +14,8 @@ client = MongoClient(mongo_uri)
 db = client['leadsPilotAI']
 
 # MongoDB Collection
-admin_users_collection = db.admin_users
-clients_collection = db.client
+admin_users_collection = client['leadspilotai']['admin_users']
+clients_collection = client['leadspilotai']['clients']
 
 logger = logging.getLogger(__name__)
 logger.info(f"MongoDB URI in {__file__}: {mongo_uri}")
