@@ -28,11 +28,15 @@ def login_with_token():
     token = data.get('token')
     password = data.get('password')
 
+    logger.info(f"Received token: {token}")
+
+
     if not token or not password:
         return jsonify({"error": "token and password are required"}), 400
 
     # Find user by token
     user = admin_users_collection.find_one({"invite_token": token})
+    logger.info(f"Found user: {user}")
     if not user:
         return jsonify({"error": "Invalid invite token"}), 401
 
