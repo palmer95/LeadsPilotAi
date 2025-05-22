@@ -89,11 +89,16 @@ def login():
     if not check_password_hash(user['password_hash'], password):
         return jsonify({"error": "Invalid email or password"}), 401
 
+    # Fetch the associated client data (client_slug)
+    client = clients_collection.find_one({"_id": user['client_id']})
+    if not client:
+        return jsonify({"error": "Client not found"}), 404
+    
     # 1) Establish session
     session.clear()
     session.permanent = True
     session["admin_user_id"] = str(user['_id'])
-    session["admin_client_slug"] = user['client_slug']  # Assuming client_slug is stored during onboarding
+    session["admin_client_slug"] = client['client_slug']  # Assuming client_slug is stored during onboarding
 
     return jsonify({"success": True})
 
