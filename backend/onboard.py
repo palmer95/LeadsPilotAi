@@ -1,15 +1,23 @@
-# backend/onboard.py
-
 import os
 import secrets
 import smtplib
 from datetime import datetime, timedelta
 from email.message import EmailMessage
+from flask import Blueprint, request, jsonify
+from pymongo import MongoClient
+from bson import ObjectId
+from dotenv import load_dotenv
 
-from flask import Blueprint, request, jsonify, url_for, session
-from sqlalchemy.exc import IntegrityError
+load_dotenv()
 
-from db import SessionLocal, Client, AdminUser, FAQ
+# MongoDB setup
+mongo_uri = os.getenv('MONGO_URI')
+client = MongoClient(mongo_uri)
+db = client['leadsPilotAI']
+
+clients_collection = db.clients
+admin_users_collection = db.admin_users
+faqs_collection = db.faqs
 
 bp = Blueprint('onboard', __name__, url_prefix='/api')
 
@@ -62,41 +70,57 @@ def onboard():
     if not all([name, slug, admin_email]):
         return jsonify({'error': 'company_name, slug, and admin_email are required'}), 400
 
-    db = SessionLocal()
-    try:
-        # 1) create Client
-        client = Client(slug=slug, business_name=name)
-        db.add(client)
-        db.flush()  # get client.id
+    # 1) Create Client
+    client_doc = {
+        "slug": slug,
+        "business_name": name,
+        "location": data.get('location', ''),
+        "description": data.get('description', ''),
+        "calendar_id": data.get('calendar_id', ''),
+        "calendar_tokens": data.get('calendar_tokens', {}),
+        "faqs": [],  # Will populate later
+        "workflows": [],  # Will populate later
+        "leads": [],  # Will populate later
+        "users": []  # Will populate later
+    }
 
-        # 2) stub FAQs
-        for idx, faq in enumerate(initial_faqs):
-            db.add(FAQ(
-                client_id  = client.id,
-                question   = faq.get('question', ''),
-                answer     = faq.get('answer', ''),
-                sort_order = idx
-            ))
+    client = clients_collection.insert_one(client_doc)
+    client_id = client.inserted_id  # MongoDB ObjectId
+    
+    # 2) Add initial FAQs
+    for idx, faq in enumerate(initial_faqs):
+        faq_doc = {
+            "client_id": client_id,
+            "question": faq.get('question', ''),
+            "answer": faq.get('answer', ''),
+            "sort_order": idx
+        }
+        faqs_collection.insert_one(faq_doc)
 
-        # 3) create AdminUser with invite token
-        token  = secrets.token_urlsafe(32)
-        expiry = datetime.utcnow() + timedelta(days=7)
-        user = AdminUser(
-            email               = admin_email,
-            client_id           = client.id,
-            invite_token        = token,
-            invite_token_expiry = expiry
-        )
-        db.add(user)
-        db.commit()
+    # 3) Create AdminUser with invite token
+    token  = secrets.token_urlsafe(32)
+    expiry = datetime.utcnow() + timedelta(days=7)
 
-    except IntegrityError:
-        db.rollback()
-        return jsonify({'error': 'slug or email already in use'}), 409
+    admin_user_doc = {
+        "email": admin_email,
+        "client_id": client_id,
+        "invite_token": token,
+        "invite_token_expiry": expiry,
+        "role": "admin",
+        "created_at": datetime.utcnow()
+    }
+    admin_user = admin_users_collection.insert_one(admin_user_doc)
+    admin_user_id = admin_user.inserted_id
 
-    # 4) send the invite
+    # 4) Add the admin user reference to the client document
+    clients_collection.update_one(
+        {"_id": ObjectId(client_id)},
+        {"$push": {"users": admin_user_id}}
+    )
+
+    # 5) Send the invite email
     FRONTEND_URL = os.getenv("FRONTEND_URL", "www.leadspilotai.com")
     invite_link = f"{FRONTEND_URL}/admin/setup?token={token}"
     send_invite_email(name, invite_link, admin_email)
 
-    return jsonify({'success': True}), 201
+    return jsonify({'success': True, 'client_id': str(client_id)}), 201
