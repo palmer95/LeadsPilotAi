@@ -15,6 +15,7 @@ db = client['leadsPilotAI']
 
 # MongoDB Collection
 admin_users_collection = db.admin_users
+clients_collection = db.client
 
 logger = logging.getLogger(__name__)
 logger.info(f"MongoDB URI in {__file__}: {mongo_uri}")
@@ -45,10 +46,15 @@ def login_with_token():
         {"$set": {"password_hash": hashed_password, "invite_token": None, "invite_token_expiry": None}}
     )
 
+    # Retrieve client_slug from the associated Client document
+    client = clients_collection.find_one({"_id": user['client_id']})
+    if not client:
+        return jsonify({"error": "Client not found"}), 404
+
     # Establish session
     session.clear()
     session["admin_user_id"] = str(user['_id'])
-    session["admin_client_slug"] = user['client_slug']  # Assume client_slug is stored during onboarding
+    session["admin_client_slug"] = client['slug']  # Retrieve client_slug from the Client document
 
     return jsonify({"success": True})
 
