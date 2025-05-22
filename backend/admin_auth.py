@@ -41,10 +41,15 @@ def login_with_token():
 
     # Hash & save the new password
     hashed_password = generate_password_hash(password)
-    admin_users_collection.update_one(
+    update_result = admin_users_collection.update_one(
         {"_id": user['_id']},
         {"$set": {"password_hash": hashed_password, "invite_token": None, "invite_token_expiry": None}}
     )
+
+    # Log the result of the update operation
+    if update_result.modified_count == 0:
+        logger.error(f"Failed to update password for user {user['_id']}. Update result: {update_result.raw_result}")
+        return jsonify({"error": "Failed to update password. Please try again."}), 500
 
     # Retrieve client_slug from the associated Client document
     client = clients_collection.find_one({"_id": user['client_id']})
@@ -57,6 +62,8 @@ def login_with_token():
     session["admin_client_slug"] = client['slug']  # Retrieve client_slug from the Client document
 
     return jsonify({"success": True})
+
+
 
 @bp.route('/login', methods=['POST'])
 def login():
