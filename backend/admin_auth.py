@@ -21,10 +21,10 @@ logger.info(f"MongoDB URI in {__file__}: {mongo_uri}")
 
 bp = Blueprint('admin_auth', __name__, url_prefix='/api/admin')
 
-@bp.route('/login-with-token', methods=['POST'])
+@bp.route("/login-with-token", methods=['POST'])
 def login_with_token():
     data = request.get_json() or {}
-    token    = data.get('token')
+    token = data.get('token')
     password = data.get('password')
 
     if not token or not password:
@@ -38,21 +38,17 @@ def login_with_token():
     if user['invite_token_expiry'] < datetime.utcnow():
         return jsonify({"error": "Invite token has expired"}), 401
 
-    # 1) Hash & save the new password
+    # Hash & save the new password
     hashed_password = generate_password_hash(password)
     admin_users_collection.update_one(
         {"_id": user['_id']},
-        {"$set": {
-            "password_hash": hashed_password,
-            "invite_token": None,
-            "invite_token_expiry": None
-        }}
+        {"$set": {"password_hash": hashed_password, "invite_token": None, "invite_token_expiry": None}}
     )
 
-    # 2) Establish their session
+    # Establish session
     session.clear()
-    session["admin_user_id"]     = str(user['_id'])
-    session["admin_client_slug"] = user['client_slug']
+    session["admin_user_id"] = str(user['_id'])
+    session["admin_client_slug"] = user['client_slug']  # Assume client_slug is stored during onboarding
 
     return jsonify({"success": True})
 
@@ -71,16 +67,18 @@ def login():
     if not user:
         return jsonify({"error": "Invalid email or password"}), 401
     
-    if check_password_hash(user['password_hash'], password):
-        # 1) Establish session
-        session.clear()
-        session.permanent = True
-        session["admin_user_id"] = str(user['_id'])
-        session["admin_client_slug"] = user['client_slug']
-
-        return jsonify({"success": True})
-    else:
+    # Check if the provided password matches the stored hash
+    if not check_password_hash(user['password_hash'], password):
         return jsonify({"error": "Invalid email or password"}), 401
+
+    # 1) Establish session
+    session.clear()
+    session.permanent = True
+    session["admin_user_id"] = str(user['_id'])
+    session["admin_client_slug"] = user['client_slug']  # Assuming client_slug is stored during onboarding
+
+    return jsonify({"success": True})
+
 
 @bp.route('/check-session', methods=['GET'])
 def check_session():
