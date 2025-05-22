@@ -5,11 +5,20 @@ import os
 import smtplib
 from datetime import datetime
 from email.message import EmailMessage
-from db import SessionLocal, Lead, Client, DB_PATH  # Your SQLAlchemy models
+from pymongo import MongoClient
 import logging
 
-logger = logging.getLogger(__name__)
-logger.info(f"Database Path in {__file__}: {DB_PATH}")
+# ───────────────────────────────────────────────────────────────
+# MongoDB Setup
+# ───────────────────────────────────────────────────────────────
+mongo_uri = os.getenv('MONGO_URI')
+client = MongoClient(mongo_uri)
+db = client['leadsPilotAI']
+
+# MongoDB Collections
+admin_users_collection = db['admin_users']
+clients_collection = db['clients']
+leads_collection = db['leads']
 
 # ───────────────────────────────────────────────────────────────
 # 1) State & Reset
@@ -188,38 +197,21 @@ def continue_sales_flow(user_input: str, config: dict, qa_response: str = None) 
         contact = info[-1]["answer"]
         qualifiers = info[:-2]
 
-        # save to DB
-        session = SessionLocal()
-
-        payload = {
-                "interested_package": sales_state.get("interested_package"),
-                "qualifiers": qualifiers
+        # Save to MongoDB
+        lead_data = {
+            "client_id": 1,  # Replace with dynamic lookup if needed
+            "name": name,
+            "email": contact,
+            "responses": {"interested_package": sales_state["interested_package"], "qualifiers": qualifiers},
+            "created_at": datetime.utcnow()
         }
 
-        # lead = Lead(
-        #     company_id=1,
-        #     name=name, contact=contact,
-        #     interested_package=sales_state["interested_package"] or "",
-        #     details="\n".join(f"{q['question']}: {q['answer']}" for q in qualifiers),
-        #     created_at=datetime.utcnow()
-        # )
+        # Insert into leads collection
+        leads_collection.insert_one(lead_data)
 
-        try: 
-            lead = Lead(
-                client_id=1,             # or dynamically look up client.id
-                name=name,
-                email=contact,
-                responses=payload
-            )
-
-            session.add(lead)
-            session.commit()
-        finally: 
-            session.close()
-
-        # email summary
         full_qa = "\n\n".join(f"{q['question']} → {q['answer']}" for q in info)
         initial = info[0]["answer"]
+
         send_lead_email(
             company_name=config["business_name"],
             interested_package=sales_state.get("interested_package"),
