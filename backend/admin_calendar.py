@@ -1,10 +1,21 @@
-# admin_calendar.py
-
 from flask import Blueprint, redirect, request, session, jsonify
 import os
 import google.auth.transport.requests
 from google_auth_oauthlib.flow import Flow
-from db import SessionLocal, AdminUser, Client
+from pymongo import MongoClient
+from bson import ObjectId
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# MongoDB setup
+mongo_uri = os.getenv('MONGO_URI')
+client = MongoClient(mongo_uri)
+db = client['leadsPilotAI']
+
+# MongoDB Collections
+admin_users_collection = db.admin_users
+clients_collection = db.clients
 
 bp = Blueprint('calendar', __name__, url_prefix='/api/admin/calendar')
 
@@ -58,19 +69,20 @@ def oauth_callback():
     flow.fetch_token(authorization_response=request.url)
 
     creds = flow.credentials
-    db = SessionLocal()
-
     admin_id = session.get("admin_user_id")
     if not admin_id:
         return "Unauthorized", 401
 
-    user = db.query(AdminUser).filter_by(id=admin_id).first()
+    user = admin_users_collection.find_one({"_id": ObjectId(admin_id)})
     if not user:
         return "User not found", 404
 
     # Save tokens on user’s client
-    client = user.client
-    client.calendar_tokens = {
+    client = clients_collection.find_one({"_id": user['client_id']})
+    if not client:
+        return "Client not found", 404
+
+    calendar_tokens = {
         "token": creds.token,
         "refresh_token": creds.refresh_token,
         "token_uri": creds.token_uri,
@@ -78,8 +90,14 @@ def oauth_callback():
         "client_secret": creds.client_secret,
         "scopes": creds.scopes
     }
-    db.commit()
+
+    clients_collection.update_one(
+        {"_id": client['_id']},
+        {"$set": {"calendar_tokens": calendar_tokens, "calendar_id": creds.id_token}}
+    )
+
     return redirect("/admin")  # or wherever you want
+
 
 @bp.route("/status", methods=["GET"])
 def calendar_status():
@@ -89,11 +107,10 @@ def calendar_status():
     if not admin_user_id or not client_slug:
         return jsonify({"error": "Unauthorized"}), 401
 
-    db = SessionLocal()
-    client = db.query(Client).filter_by(slug=client_slug).first()
-    db.close()
+    client = clients_collection.find_one({"slug": client_slug})
+    
+    return jsonify({"connected": bool(client and client.get("calendar_tokens"))})
 
-    return jsonify({"connected": bool(client and client.calendar_tokens)})
 
 @bp.route("", methods=["GET"])
 def calendar_details():
@@ -103,14 +120,12 @@ def calendar_details():
     if not admin_user_id or not client_slug:
         return jsonify({"error": "Unauthorized"}), 401
 
-    db = SessionLocal()
-    client = db.query(Client).filter_by(slug=client_slug).first()
-    db.close()
+    client = clients_collection.find_one({"slug": client_slug})
 
-    if not client or not client.calendar_tokens:
+    if not client or not client.get("calendar_tokens"):
         return jsonify({"error": "No calendar connected"}), 404
 
     return jsonify({
-        "calendar_id": client.calendar_id,
-        "tokens": client.calendar_tokens,
+        "calendar_id": client["calendar_id"],
+        "tokens": client["calendar_tokens"],
     })
