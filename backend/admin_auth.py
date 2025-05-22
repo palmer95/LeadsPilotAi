@@ -98,7 +98,7 @@ def login():
     session.clear()
     session.permanent = True
     session["admin_user_id"] = str(user['_id'])
-    session["admin_client_slug"] = client['client_slug']  # Assuming client_slug is stored during onboarding
+    session["admin_client_slug"] = client['slug']  # Assuming client_slug is stored during onboarding
 
     return jsonify({"success": True})
 
