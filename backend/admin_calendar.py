@@ -5,8 +5,22 @@ from google_auth_oauthlib.flow import Flow
 from pymongo import MongoClient
 from bson import ObjectId
 from dotenv import load_dotenv
+import logging
 
 load_dotenv()
+
+# setup logging
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
 
 # MongoDB setup
 mongo_uri = os.getenv('MONGO_URI')
@@ -50,8 +64,10 @@ def oauth_start():
 def oauth_callback():
     state = session.get("oauth_state")
     if not state:
+        logger.error("Missing state in OAuth callback.")
         return "Missing state", 400
 
+    # Create the OAuth flow from the client configuration
     flow = Flow.from_client_config(
         {
             "web": {
@@ -66,22 +82,32 @@ def oauth_callback():
         redirect_uri=os.environ["GOOGLE_REDIRECT_URI"]
     )
 
+    # Fetch token using the authorization response URL
     flow.fetch_token(authorization_response=request.url)
 
     creds = flow.credentials
+
+    # Debug: Log credentials to verify successful authentication
+    logger.info(f"Google credentials: {creds}")
+
     admin_id = session.get("admin_user_id")
     if not admin_id:
+        logger.error("Admin ID not found in session.")
         return "Unauthorized", 401
 
+    # Fetch the user document from MongoDB using the admin_id
     user = admin_users_collection.find_one({"_id": ObjectId(admin_id)})
     if not user:
+        logger.error(f"User not found for admin ID: {admin_id}")
         return "User not found", 404
 
-    # Save tokens on user’s client
+    # Fetch the client document associated with the user
     client = clients_collection.find_one({"_id": user['client_id']})
     if not client:
+        logger.error(f"Client not found for user: {user['email']}")
         return "Client not found", 404
 
+    # Prepare the calendar tokens to be saved
     calendar_tokens = {
         "token": creds.token,
         "refresh_token": creds.refresh_token,
@@ -91,11 +117,18 @@ def oauth_callback():
         "scopes": creds.scopes
     }
 
-    clients_collection.update_one(
+    # Update the client document in MongoDB with the calendar tokens
+    result = clients_collection.update_one(
         {"_id": client['_id']},
         {"$set": {"calendar_tokens": calendar_tokens, "calendar_id": creds.id_token}}
     )
 
+    if result.matched_count == 0:
+        logger.error(f"Failed to update client with calendar tokens. Client ID: {client['_id']}")
+        return "Failed to save calendar tokens", 500
+
+    # Debug: Log success and return redirect
+    logger.info(f"Successfully updated calendar tokens for client: {client['_id']}")
     return redirect("/admin")  # or wherever you want
 
 
