@@ -62,6 +62,7 @@ def oauth_start():
 
 @bp.route("/oauth-callback")
 def oauth_callback():
+    logger.log('In the callback')
     state = session.get("oauth_state")
     if not state:
         logger.error("Missing state in OAuth callback.")
@@ -82,10 +83,15 @@ def oauth_callback():
         redirect_uri=os.environ["GOOGLE_REDIRECT_URI"]
     )
 
-    # Fetch token using the authorization response URL
-    flow.fetch_token(authorization_response=request.url)
+    # Fetch the token using the response from Google
+    try:
+        flow.fetch_token(authorization_response=request.url)
+        creds = flow.credentials
+        logger.info(f"Successfully retrieved Google Calendar credentials {creds}.")
+    except Exception as e:
+        logger.error(f"Error in fetching Google token: {e}")
+        return jsonify({"error": "Error in OAuth callback."}), 500
 
-    creds = flow.credentials
 
     # Debug: Log credentials to verify successful authentication
     logger.info(f"Google credentials: {creds}")
