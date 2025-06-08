@@ -37,6 +37,8 @@ SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
 @bp.route("/oauth-start")
 def oauth_start():
+    logger.info("Starting OAuth process...")
+
     flow = Flow.from_client_config(
         {
             "web": {
@@ -57,6 +59,7 @@ def oauth_start():
         prompt="consent"
     )
     session["oauth_state"] = state
+    logger.info(f"Redirecting to Google OAuth URL: {auth_url}")
     return redirect(auth_url)
 
 
