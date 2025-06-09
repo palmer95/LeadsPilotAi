@@ -64,11 +64,6 @@ def apply_cors_headers(response):
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
         response.headers["Vary"] = "Origin"  # Important to vary the origin for credentials
 
-    # 🔥 Debug CORS logs
-    logger.info(f"CORS Applied for Origin: {origin} → {response.headers.get('Access-Control-Allow-Origin')}")
-    logger.info(f"Allowed Methods: {response.headers.get('Access-Control-Allow-Methods')}")
-    logger.info(f"Allowed Headers: {response.headers.get('Access-Control-Allow-Headers')}")
-
     return response
 
 # 🚀 Explicit Preflight Handler for OPTIONS (SOLVES PRE-FLIGHT ISSUES)

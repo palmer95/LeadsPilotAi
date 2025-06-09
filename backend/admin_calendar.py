@@ -59,6 +59,7 @@ def oauth_start():
         prompt="consent"
     )
     session["oauth_state"] = state
+    logger.info(f"Current state: {state}")
     logger.info(f"Redirecting to Google OAuth URL: {auth_url}")
     return redirect(auth_url)
 
