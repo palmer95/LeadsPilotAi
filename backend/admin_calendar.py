@@ -65,7 +65,8 @@ def oauth_start():
 
 @bp.route("/oauth-callback")
 def oauth_callback():
-    logger.log('In the callback')
+    logger.info('In the OAuth callback')
+
     state = session.get("oauth_state")
     if not state:
         logger.error("Missing state in OAuth callback.")
@@ -90,11 +91,10 @@ def oauth_callback():
     try:
         flow.fetch_token(authorization_response=request.url)
         creds = flow.credentials
-        logger.info(f"Successfully retrieved Google Calendar credentials {creds}.")
+        logger.info(f"Successfully retrieved Google Calendar credentials: {creds.token[:10]}...")  # Log token start
     except Exception as e:
         logger.error(f"Error in fetching Google token: {e}")
         return jsonify({"error": "Error in OAuth callback."}), 500
-
 
     # Debug: Log credentials to verify successful authentication
     logger.info(f"Google credentials: {creds}")
@@ -138,8 +138,7 @@ def oauth_callback():
 
     # Debug: Log success and return redirect
     logger.info(f"Successfully updated calendar tokens for client: {client['_id']}")
-    return redirect("/admin")  # or wherever you want
-
+    return redirect("/admin")  # Redirect to admin page after success
 
 @bp.route("/status", methods=["GET"])
 def calendar_status():
