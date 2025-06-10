@@ -35,6 +35,8 @@ bp = Blueprint('calendar', __name__, url_prefix='/api/admin/calendar')
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
+
+
 @bp.route("/oauth-start")
 def oauth_start():
     logger.info("Starting OAuth process...")
@@ -68,12 +70,13 @@ def oauth_start():
 def oauth_callback():
     logger.info('In the OAuth callback')
 
-    state = session.get("oauth_state")
+    # Get the state parameter from the URL
+    state = request.args.get('state')
     if not state:
         logger.error("Missing state in OAuth callback.")
         return "Missing state", 400
 
-    # Create the OAuth flow from the client configuration
+    # The rest of the OAuth logic remains the same
     flow = Flow.from_client_config(
         {
             "web": {
