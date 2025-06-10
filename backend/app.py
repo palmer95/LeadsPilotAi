@@ -51,6 +51,10 @@ app.config["SESSION_COOKIE_NAME"] = "leadspilot_session"
 # Enable CORS
 CORS(app, supports_credentials=True)  # This allows credentials but will be controlled dynamically
 
+@app.before_request
+def log_request():
+    logger.info(f"Incoming request: {request.method} {request.url}")
+
 @app.after_request
 def apply_cors_headers(response):
     origin = request.headers.get("Origin")
