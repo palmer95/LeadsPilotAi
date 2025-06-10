@@ -53,12 +53,6 @@ app.config['SESSION_COOKIE_DOMAIN'] = 'https://www.leadspilotai.com/'
 # Enable CORS
 CORS(app, supports_credentials=True)  # This allows credentials but will be controlled dynamically
 
-@app.before_request
-def before_request():
-    if request.scheme == "http":
-        return redirect(request.url.replace("http://", "https://"), code=301)
-
-
 @app.after_request
 def apply_cors_headers(response):
     origin = request.headers.get("Origin")
