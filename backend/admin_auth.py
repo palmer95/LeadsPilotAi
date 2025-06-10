@@ -106,9 +106,9 @@ def login():
 @bp.route('/check-session', methods=['GET'])
 def check_session():
     """Checks if the user is logged in via session."""
-    #if "admin_user_id" in session:
-    return jsonify({"logged_in": True})
-    #return jsonify({"logged_in": False}), 401
+    if "admin_user_id" in session:
+        return jsonify({"logged_in": True})
+    return jsonify({"logged_in": False}), 401
 
 @bp.route('/logout', methods=['POST'])
 def logout():
