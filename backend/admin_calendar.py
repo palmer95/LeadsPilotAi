@@ -69,6 +69,8 @@ def oauth_start():
 @bp.route("/oauth-callback")
 def oauth_callback():
     logger.info('In the OAuth callback')
+    logger.info(f"Request protocol: {request.scheme}")
+
 
     # Get the state parameter from the URL
     state = request.args.get('state')

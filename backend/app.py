@@ -2,7 +2,7 @@
 import os
 import json
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, redirect
 from flask_cors import CORS
 from dotenv import load_dotenv
 import logging
@@ -54,8 +54,10 @@ app.config['SESSION_COOKIE_DOMAIN'] = 'https://www.leadspilotai.com/'
 CORS(app, supports_credentials=True)  # This allows credentials but will be controlled dynamically
 
 @app.before_request
-def log_request():
-    logger.info(f"Incoming request: {request.method} {request.url}")
+def before_request():
+    if request.scheme == "http":
+        return redirect(request.url.replace("http://", "https://"), code=301)
+
 
 @app.after_request
 def apply_cors_headers(response):
