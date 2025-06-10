@@ -58,6 +58,17 @@ def log_request():
     logger = logging.getLogger("Flask")
     logger.info(f"Incoming request: {request.method} {request.url} - Scheme: {request.scheme}")
 
+@app.before_request
+def force_https():
+    # Skip redirect on already secure routes (OAuth callback and login routes)
+    if request.scheme == "http" and not (
+        request.path.startswith('/api/admin/calendar/oauth-callback') or
+        request.path.startswith('/login')  # add any other routes as needed
+    ):
+        # Redirect to HTTPS for non-secure requests
+        return redirect(request.url.replace("http://", "https://"), code=301)
+
+
 @app.after_request
 def apply_cors_headers(response):
     origin = request.headers.get("Origin")
