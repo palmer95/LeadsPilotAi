@@ -49,6 +49,8 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # Required for cross-site cookies
 app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session expiry
 app.config["SESSION_COOKIE_NAME"] = "leadspilot_session"
 app.config['SESSION_COOKIE_DOMAIN'] = 'https://www.leadspilotai.com/' 
+app.config['PREFERRED_URL_SCHEME'] = 'https'
+
 
 # Enable CORS
 CORS(app, supports_credentials=True)  # This allows credentials but will be controlled dynamically
@@ -57,16 +59,6 @@ CORS(app, supports_credentials=True)  # This allows credentials but will be cont
 def log_request():
     logger = logging.getLogger("Flask")
     logger.info(f"Incoming request: {request.method} {request.url} - Scheme: {request.scheme}")
-
-@app.before_request
-def force_https():
-    # Skip redirect on already secure routes (OAuth callback and login routes)
-    if request.scheme == "http" and not (
-        request.path.startswith('/api/admin/calendar/oauth-callback') or
-        request.path.startswith('/login')  # add any other routes as needed
-    ):
-        # Redirect to HTTPS for non-secure requests
-        return redirect(request.url.replace("http://", "https://"), code=301)
 
 
 @app.after_request

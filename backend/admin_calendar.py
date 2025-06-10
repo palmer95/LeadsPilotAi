@@ -70,13 +70,19 @@ def oauth_start():
 def oauth_callback():
     logger.info('In the OAuth callback')
     logger.info(f"Request protocol: {request.scheme}")
+    logger.info(f"Request URL: {request.url}")  # Log the full callback URL to inspect query params
 
-
-    # Get the state parameter from the URL
+    # Get the state and code parameters from the URL
     state = request.args.get('state')
-    if not state:
-        logger.error("Missing state in OAuth callback.")
-        return "Missing state", 400
+    code = request.args.get('code')
+    
+    # Log state and code to verify they are passed correctly
+    logger.info(f"Received state: {state}")
+    logger.info(f"Received code: {code}")
+
+    if not state or not code:
+        logger.error("Missing state or code in OAuth callback.")
+        return "Missing state or code", 400
 
     # The rest of the OAuth logic remains the same
     flow = Flow.from_client_config(
@@ -95,6 +101,7 @@ def oauth_callback():
 
     # Fetch the token using the response from Google
     try:
+        logger.info("Fetching token with the authorization response")
         flow.fetch_token(authorization_response=request.url)
         creds = flow.credentials
         logger.info(f"Successfully retrieved Google Calendar credentials: {creds.token[:10]}...")  # Log token start
@@ -105,6 +112,7 @@ def oauth_callback():
     # Debug: Log credentials to verify successful authentication
     logger.info(f"Google credentials: {creds}")
 
+    # Retrieve admin ID from session
     admin_id = session.get("admin_user_id")
     if not admin_id:
         logger.error("Admin ID not found in session.")
