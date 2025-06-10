@@ -11,6 +11,8 @@ from langchain_community.vectorstores import FAISS
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
 from datetime import datetime
+from werkzeug.middleware.proxy_fix import ProxyFix
+
 
 from onboard import bp as onboard_bp
 from admin_auth import bp as admin_auth_bp
@@ -42,13 +44,16 @@ if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY is required.")
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
+
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "super-secret-key")
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # Required for cross-site cookies
 app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session expiry
 app.config["SESSION_COOKIE_NAME"] = "leadspilot_session"
-app.config['SESSION_COOKIE_DOMAIN'] = 'https://www.leadspilotai.com/' 
+app.config['SESSION_COOKIE_DOMAIN'] = 'leadspilotai.onrender.com' 
 app.config['PREFERRED_URL_SCHEME'] = 'https'
 
 
@@ -59,6 +64,14 @@ CORS(app, supports_credentials=True)  # This allows credentials but will be cont
 def log_request():
     logger = logging.getLogger("Flask")
     logger.info(f"Incoming request: {request.method} {request.url} - Scheme: {request.scheme}")
+
+# Enforce HTTPS for all requests
+@app.before_request
+def enforce_https():
+    if request.headers.get('X-Forwarded-Proto', 'http') != 'https':
+        url = request.url.replace('http://', 'https://', 1)
+        return redirect(url, code=301)
+
 
 
 @app.after_request
