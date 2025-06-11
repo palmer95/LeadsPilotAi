@@ -6,6 +6,8 @@ from pymongo import MongoClient
 from bson import ObjectId
 from dotenv import load_dotenv
 import logging
+import base64
+import json
 
 load_dotenv()
 
@@ -71,6 +73,8 @@ def oauth_callback():
     logger.info('In the OAuth callback')
     logger.info(f"Request protocol: {request.scheme}")
     logger.info(f"Request URL: {request.url}")  # Log the full callback URL to inspect query params
+    logger.info(f"Session in callback: {session}")
+    logger.info(f"Request cookies in callback: {request.cookies}")
 
     # Get the state and code parameters from the URL
     state = request.args.get('state')
@@ -83,6 +87,16 @@ def oauth_callback():
     if not state or not code:
         logger.error("Missing state or code in OAuth callback.")
         return "Missing state or code", 400
+
+    try:
+        state_data = json.loads(base64.urlsafe_b64decode(state).decode())
+        admin_user_id = state_data.get("admin_user_id")
+        if not admin_user_id or state != session.get("oauth_state"):
+            logger.error("Invalid or mismatched state parameter")
+            return "Invalid state", 400
+    except Exception as e:
+        logger.error(f"Error decoding state: {e}")
+        return "Invalid state", 400
 
     # The rest of the OAuth logic remains the same
     flow = Flow.from_client_config(

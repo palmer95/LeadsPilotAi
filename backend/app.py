@@ -50,14 +50,11 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "super-secret-key")
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # Required for cross-site cookies
+app.config["SESSION_COOKIE_SAMESITE"] = "None"  # Required for cross-site cookies
 app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session expiry
 app.config["SESSION_COOKIE_NAME"] = "leadspilot_session"
 app.config['SESSION_COOKIE_DOMAIN'] = 'leadspilotai.onrender.com' 
 app.config['PREFERRED_URL_SCHEME'] = 'https'
-
-
-# Enable CORS
 CORS(app, supports_credentials=True)  # This allows credentials but will be controlled dynamically
 
 @app.before_request

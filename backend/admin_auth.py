@@ -100,11 +100,15 @@ def login():
     session["admin_user_id"] = str(user['_id'])
     session["admin_client_slug"] = client['slug']  # Assuming client_slug is stored during onboarding
 
+    logger.info(f"Session set after login: {session}")
+    logger.info(f"Response cookies: {request.cookies}")  # Cookies should be empty here
     return jsonify({"success": True})
 
 
 @bp.route('/check-session', methods=['GET'])
 def check_session():
+    logger.info(f"Session in check-session: {session}")
+    logger.info(f"Request cookies: {request.cookies}")
     """Checks if the user is logged in via session."""
     if "admin_user_id" in session:
         return jsonify({"logged_in": True})
