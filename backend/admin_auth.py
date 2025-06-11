@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, session, make_response
 from datetime import datetime, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 import logging
@@ -102,7 +102,10 @@ def login():
 
     logger.info(f"Session set after login: {session}")
     logger.info(f"Response cookies: {request.cookies}")  # Cookies should be empty here
-    return jsonify({"success": True})
+    
+    response = make_response(jsonify({"success": True}))
+    logger.info(f"Response headers: {response.headers}")
+    return response
 
 
 @bp.route('/check-session', methods=['GET'])
