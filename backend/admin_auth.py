@@ -1,10 +1,11 @@
 from flask import Blueprint, request, jsonify, session, make_response
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 import logging
 from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
+import jwt
 
 load_dotenv()
 
@@ -70,8 +71,15 @@ def login_with_token():
 
 
 
-@bp.route('/login', methods=['POST'])
+@bp.route('/login', methods=['POST', 'OPTIONS'])
 def login():
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return response
+        
     data = request.get_json() or {}
     email = data.get("email")
     password = data.get("password")
@@ -82,34 +90,27 @@ def login():
     # Find user by email
     user = admin_users_collection.find_one({"email": email})
 
-    if not user:
+    if not user or not check_password_hash(user['password_hash'], password):
         return jsonify({"error": "Invalid email or password"}), 401
     
-    # Check if the provided password matches the stored hash
-    if not check_password_hash(user['password_hash'], password):
-        return jsonify({"error": "Invalid email or password"}), 401
-
     # Fetch the associated client data (client_slug)
     client = clients_collection.find_one({"_id": user['client_id']})
     if not client:
         return jsonify({"error": "Client not found"}), 404
     
-    # 1) Establish session
-    session.clear()
-    session.permanent = True
-    session["admin_user_id"] = str(user['_id'])
-    session["admin_client_slug"] = client['slug']  # Assuming client_slug is stored during onboarding
+   # Generate JWT
+    token = jwt.encode({
+        'admin_user_id': str(user['_id']),
+        'admin_client_slug': client['slug'],
+        'exp': datetime.utcnow() + timedelta(hours=1)
+    }, os.getenv('FLASK_SECRET_KEY'), algorithm='HS256')
 
-    logger.info(f"Session set after login: {session}")
-    logger.info(f"Response cookies: {request.cookies}")  # Cookies should be empty here
-    
-    response = make_response(jsonify({"success": True}))
-    logger.info(f"Response headers: {response.headers}")
+    response = make_response(jsonify({"success": True, "token": token}))
+    response.headers['Access-Control-Allow-Origin'] = '*'
     return response
 
 
-@bp.route('/check-session', methods=['GET', 'OPTIONS'])
-def check_session():
+
     if request.method == 'OPTIONS':
         logger.info("Handling OPTIONS for check-session")
         response = make_response()
@@ -135,6 +136,28 @@ def check_session():
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     return response, 401
 
+@bp.route('/verify-token', methods=['GET', 'OPTIONS'])
+def verify_token():
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Authorization'
+        return response
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"error": "Missing or invalid token"}, status=401), 401
+
+    token = auth_header.split(' ')[1]
+    try:
+        payload = jwt.decode(token, os.getenv('FLASK_SECRET_KEY'), algorithms=['HS256'])
+        logger.info(f"Token payload: {payload}")
+        return jsonify({"logged_in": True, "admin_user_id": payload['admin_user_id']})
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}, status=401), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}, status=401), 401
 
 @bp.route('/logout', methods=['POST'])
 def logout():
