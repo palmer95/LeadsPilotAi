@@ -1,6 +1,5 @@
-from flask import Blueprint, redirect, request, session, jsonify
+from flask import Blueprint, make_response, redirect, request, jsonify, current_app as app
 import os
-import google.auth.transport.requests
 from google_auth_oauthlib.flow import Flow
 from pymongo import MongoClient
 from bson import ObjectId
@@ -8,6 +7,8 @@ from dotenv import load_dotenv
 import logging
 import base64
 import json
+import jwt
+
 
 load_dotenv()
 
@@ -35,12 +36,44 @@ clients_collection = db.clients
 
 bp = Blueprint('calendar', __name__, url_prefix='/api/admin/calendar')
 
-SCOPES = ["https://www.googleapis.com/auth/calendar"]
+SCOPES = ["https://www.googleapis.com/auth/calendar",
+          "https://www.googleapis.com/auth/userinfo.email",
+          "openid",
+]
 
 
 
-@bp.route("/oauth-start")
+@bp.route("/oauth-start", methods=['GET', 'OPTIONS'])
 def oauth_start():
+    if request.method == 'OPTIONS':
+        logger.info("Handling OPTIONS for oauth-start")
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Authorization'
+        return response
+    
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer'):
+        logger.error("Missing or invalid authorization header")
+        return jsonify({"error": "Missing or invalid token"}), 401
+    
+    token = auth_header.split(' ')[1]
+    try:
+        payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+        admin_user_id = payload.get('admin_user_id')
+        if not admin_user_id:
+            logger.error("No admin_user_id in token payload")
+            return jsonify({"error": "Invalid token"}), 401
+        logger.info(f"Token payload: {payload}")
+    except jwt.ExpiredSignatureError:
+        logger.error("Token expired")
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        logger.error("Invalid token")
+        return jsonify({"error": "Invalid token"}), 401
+
     logger.info("Starting OAuth process...")
 
     flow = Flow.from_client_config(
@@ -57,12 +90,18 @@ def oauth_start():
         redirect_uri=os.environ["GOOGLE_REDIRECT_URI"]
     )
 
-    auth_url, state = flow.authorization_url(
+    state_data = {
+        "admin_user_id": admin_user_id,
+        "random_state": os.urandom(16).hex()
+    }
+    state = base64.urlsafe_b64encode(json.dumps(state_data).encode()).decode()
+
+    auth_url, _ = flow.authorization_url(
         access_type="offline",  # so we get a refresh token
         include_granted_scopes="true",
-        prompt="consent"
+        prompt="consent",
+        state=state
     )
-    session["oauth_state"] = state
     logger.info(f"Current state: {state}")
     logger.info(f"Redirecting to Google OAuth URL: {auth_url}")
     return redirect(auth_url)
@@ -73,16 +112,14 @@ def oauth_callback():
     logger.info('In the OAuth callback')
     logger.info(f"Request protocol: {request.scheme}")
     logger.info(f"Request URL: {request.url}")  # Log the full callback URL to inspect query params
-    logger.info(f"Session in callback: {session}")
-    logger.info(f"Request cookies in callback: {request.cookies}")
-
-    # Get the state and code parameters from the URL
+    
     state = request.args.get('state')
     code = request.args.get('code')
     
-    # Log state and code to verify they are passed correctly
-    logger.info(f"Received state: {state}")
-    logger.info(f"Received code: {code}")
+    
+    logger.info(f"state in callback: {state}")
+    logger.info(f"code in callback: {code}")
+
 
     if not state or not code:
         logger.error("Missing state or code in OAuth callback.")
@@ -91,9 +128,9 @@ def oauth_callback():
     try:
         state_data = json.loads(base64.urlsafe_b64decode(state).decode())
         admin_user_id = state_data.get("admin_user_id")
-        if not admin_user_id or state != session.get("oauth_state"):
-            logger.error("Invalid or mismatched state parameter")
-            return "Invalid state", 400
+        if not admin_user_id:
+            logger.error("No admin_user_id in state")
+            return jsonify({"error": "invalid state"}), 400
     except Exception as e:
         logger.error(f"Error decoding state: {e}")
         return "Invalid state", 400
@@ -126,16 +163,10 @@ def oauth_callback():
     # Debug: Log credentials to verify successful authentication
     logger.info(f"Google credentials: {creds}")
 
-    # Retrieve admin ID from session
-    admin_id = session.get("admin_user_id")
-    if not admin_id:
-        logger.error("Admin ID not found in session.")
-        return "Unauthorized", 401
-
     # Fetch the user document from MongoDB using the admin_id
-    user = admin_users_collection.find_one({"_id": ObjectId(admin_id)})
+    user = admin_users_collection.find_one({"_id": ObjectId(admin_user_id)})
     if not user:
-        logger.error(f"User not found for admin ID: {admin_id}")
+        logger.error(f"User not found for admin ID: {admin_user_id}")
         return "User not found", 404
 
     # Fetch the client document associated with the user
@@ -168,33 +199,33 @@ def oauth_callback():
     logger.info(f"Successfully updated calendar tokens for client: {client['_id']}")
     return redirect("/admin")  # Redirect to admin page after success
 
-@bp.route("/status", methods=["GET"])
-def calendar_status():
-    admin_user_id = session.get("admin_user_id")
-    client_slug = session.get("admin_client_slug")
+# @bp.route("/status", methods=["GET"])
+# def calendar_status():
+#     admin_user_id = session.get("admin_user_id")
+#     client_slug = session.get("admin_client_slug")
 
-    if not admin_user_id or not client_slug:
-        return jsonify({"error": "Unauthorized"}), 401
+#     if not admin_user_id or not client_slug:
+#         return jsonify({"error": "Unauthorized"}), 401
 
-    client = clients_collection.find_one({"slug": client_slug})
+#     client = clients_collection.find_one({"slug": client_slug})
     
-    return jsonify({"connected": bool(client and client.get("calendar_tokens"))})
+#     return jsonify({"connected": bool(client and client.get("calendar_tokens"))})
 
 
-@bp.route("", methods=["GET"])
-def calendar_details():
-    admin_user_id = session.get("admin_user_id")
-    client_slug = session.get("admin_client_slug")
+# @bp.route("", methods=["GET"])
+# def calendar_details():
+#     admin_user_id = session.get("admin_user_id")
+#     client_slug = session.get("admin_client_slug")
 
-    if not admin_user_id or not client_slug:
-        return jsonify({"error": "Unauthorized"}), 401
+#     if not admin_user_id or not client_slug:
+#         return jsonify({"error": "Unauthorized"}), 401
 
-    client = clients_collection.find_one({"slug": client_slug})
+#     client = clients_collection.find_one({"slug": client_slug})
 
-    if not client or not client.get("calendar_tokens"):
-        return jsonify({"error": "No calendar connected"}), 404
+#     if not client or not client.get("calendar_tokens"):
+#         return jsonify({"error": "No calendar connected"}), 404
 
-    return jsonify({
-        "calendar_id": client["calendar_id"],
-        "tokens": client["calendar_tokens"],
-    })
+#     return jsonify({
+#         "calendar_id": client["calendar_id"],
+#         "tokens": client["calendar_tokens"],
+#     })
