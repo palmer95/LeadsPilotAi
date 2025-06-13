@@ -84,6 +84,7 @@ def login():
     email = data.get("email")
     password = data.get("password")
 
+    logger.info(f"email: {email} password{password}")
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
 
@@ -108,33 +109,6 @@ def login():
     response = make_response(jsonify({"success": True, "token": token}))
     response.headers['Access-Control-Allow-Origin'] = '*'
     return response
-
-
-
-    if request.method == 'OPTIONS':
-        logger.info("Handling OPTIONS for check-session")
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', 'https://leadspilotai.com')
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-        return response
-
-    logger.info(f"Request URL: {request.url}")
-    logger.info(f"Request headers: {dict(request.headers)}")
-    logger.info(f"Request cookies: {request.cookies}")
-    logger.info(f"Session in check-session: {session}")
-    if "admin_user_id" in session:
-        logger.info("Session found, returning logged_in: True")
-        response = jsonify({"logged_in": True})
-        response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', 'https://leadspilotai.com')
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        return response
-    logger.error("No session found, returning logged_in: False")
-    response = jsonify({"error": "No session found"}, status=401)
-    response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', 'https://leadspilotai.com')
-    response.headers['Access-Control-Allow-Credentials'] = 'true'
-    return response, 401
 
 def create_response(data, status=200):
     response = make_response(jsonify(data), status)
