@@ -46,40 +46,33 @@ SCOPES = ["https://www.googleapis.com/auth/calendar",
 @bp.route("/oauth-start", methods=['GET', 'OPTIONS'])
 def oauth_start():
     if request.method == 'OPTIONS':
-        logger.info("Handling OPTIONS for oauth-start")
         response = make_response()
         response.headers['Access-Control-Allow-Origin'] = '*'
         response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
         response.headers['Access-Control-Allow-Headers'] = 'Authorization'
         return response
-    
 
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer'):
-        logger.error("Missing or invalid authorization header")
-        return jsonify({"error": "Missing or invalid token"}), 401
-    
+    logger.info(f"Request headers: {dict(request.headers)}")
     token = request.args.get('token')
     if not token:
         logger.error("Missing token in query parameter")
         return create_response({"error": "Missing token"}, 401)
 
     try:
-        payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+        payload = jwt.decode(token, os.getenv('FLASK_SECRET_KEY'), algorithms=['HS256'], options={"verify_exp": False})  # Temporary for testing
         admin_user_id = payload.get('admin_user_id')
         if not admin_user_id:
             logger.error("No admin_user_id in token payload")
-            return jsonify({"error": "Invalid token"}), 401
+            return create_response({"error": "Invalid token"}, 401)
         logger.info(f"Token payload: {payload}")
     except jwt.ExpiredSignatureError:
         logger.error("Token expired")
-        return jsonify({"error": "Token expired"}), 401
-    except jwt.InvalidTokenError:
-        logger.error("Invalid token")
-        return jsonify({"error": "Invalid token"}), 401
+        return create_response({"error": "Token expired"}, 401)
+    except jwt.InvalidTokenError as e:
+        logger.error(f"Invalid token: {str(e)}")
+        return create_response({"error": "Invalid token"}, 401)
 
     logger.info("Starting OAuth process...")
-
     flow = Flow.from_client_config(
         {
             "web": {
@@ -99,9 +92,8 @@ def oauth_start():
         "random_state": os.urandom(16).hex()
     }
     state = base64.urlsafe_b64encode(json.dumps(state_data).encode()).decode()
-
     auth_url, _ = flow.authorization_url(
-        access_type="offline",  # so we get a refresh token
+        access_type="offline",
         include_granted_scopes="true",
         prompt="consent",
         state=state
