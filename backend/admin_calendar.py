@@ -59,7 +59,11 @@ def oauth_start():
         logger.error("Missing or invalid authorization header")
         return jsonify({"error": "Missing or invalid token"}), 401
     
-    token = auth_header.split(' ')[1]
+    token = request.args.get('token')
+    if not token:
+        logger.error("Missing token in query parameter")
+        return create_response({"error": "Missing token"}, 401)
+
     try:
         payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
         admin_user_id = payload.get('admin_user_id')
@@ -197,7 +201,8 @@ def oauth_callback():
 
     # Debug: Log success and return redirect
     logger.info(f"Successfully updated calendar tokens for client: {client['_id']}")
-    return redirect("/admin")  # Redirect to admin page after success
+    return redirect("https://www.leadspilotai.com/admin")
+
 
 def create_response(data, status=200):
     response = make_response(jsonify(data), status)
