@@ -136,6 +136,12 @@ def login():
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     return response, 401
 
+def create_response(data, status=200):
+    response = make_response(jsonify(data), status)
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
+
+
 @bp.route('/verify-token', methods=['GET', 'OPTIONS'])
 def verify_token():
     if request.method == 'OPTIONS':
@@ -147,17 +153,17 @@ def verify_token():
 
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
-        return jsonify({"error": "Missing or invalid token"}, status=401), 401
+        return create_response({"error": "Missing or invalid token"}, 401)
 
     token = auth_header.split(' ')[1]
     try:
         payload = jwt.decode(token, os.getenv('FLASK_SECRET_KEY'), algorithms=['HS256'])
         logger.info(f"Token payload: {payload}")
-        return jsonify({"logged_in": True, "admin_user_id": payload['admin_user_id']})
+        return create_response({"logged_in": True, "admin_user_id": payload['admin_user_id']})
     except jwt.ExpiredSignatureError:
-        return jsonify({"error": "Token expired"}, status=401), 401
+        return create_response({"error": "Token expired"}, 401)
     except jwt.InvalidTokenError:
-        return jsonify({"error": "Invalid token"}, status=401), 401
+        return create_response({"error": "Invalid token"}, 401)
 
 @bp.route('/logout', methods=['POST'])
 def logout():
