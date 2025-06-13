@@ -199,6 +199,51 @@ def oauth_callback():
     logger.info(f"Successfully updated calendar tokens for client: {client['_id']}")
     return redirect("/admin")  # Redirect to admin page after success
 
+def create_response(data, status=200):
+    response = make_response(jsonify(data), status)
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
+
+@bp.route("", methods=["GET", "OPTIONS"])
+@bp.route("/", methods=["GET", "OPTIONS"])
+def calendar_details():
+    if request.method == 'OPTIONS':
+        logger.info("Handling OPTIONS for calendar_details")
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Authorization'
+        return response
+
+    logger.info(f"Request headers: {dict(request.headers)}")
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        logger.error("Missing or invalid Authorization header")
+        return create_response({"error": "Missing or invalid token"}, 401)
+
+    token = auth_header.split(' ')[1]
+    try:
+        payload = jwt.decode(token, os.getenv('FLASK_SECRET_KEY'), algorithms=['HS256'])
+        client_slug = payload.get('admin_client_slug')
+        if not client_slug:
+            logger.error("Invalid token payload")
+            return create_response({"error": "Invalid token"}, 401)
+        logger.info(f"Token payload: {payload}")
+    except jwt.ExpiredSignatureError:
+        logger.error("Token expired")
+        return create_response({"error": "Token expired"}, 401)
+    except jwt.InvalidTokenError:
+        logger.error("Invalid token")
+        return create_response({"error": "Invalid token"}, 401)
+
+    client = clients_collection.find_one({"slug": client_slug})
+    if not client:
+        logger.error(f"Client not found for slug: {client_slug}")
+        return create_response({"error": "Client not found"}, 404)
+
+    connected = bool(client.get("calendar_tokens"))
+    return create_response({"connected": connected})
+
 # @bp.route("/status", methods=["GET"])
 # def calendar_status():
 #     admin_user_id = session.get("admin_user_id")
