@@ -1,6 +1,11 @@
 from flask import Blueprint, make_response, redirect, request, jsonify, current_app as app
 import os
 from google_auth_oauthlib.flow import Flow
+from google.auth.transport.requests import Request
+from httplib2 import Credentials
+from googleapiclient.discover import build
+from datetime import datetime, timedelta
+
 from pymongo import MongoClient
 from bson import ObjectId
 from dotenv import load_dotenv
@@ -201,6 +206,163 @@ def create_response(data, status=200):
     response.headers['Access-Control-Allow-Origin'] = '*'
     return response
 
+@bp.route("/slots", methods=["GET", "OPTIONS"])
+def get_slots():
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Authorization'
+        return response
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return create_response({"error": "Missing token"}, 401)
+
+    token = auth_header.split(' ')[1]
+    try:
+        payload = jwt.decode(token, os.getenv('FLASK_SECRET_KEY'), algorithms=['HS256'])
+        client_slug = payload.get('admin_client_slug')
+    except jwt.InvalidTokenError:
+        return create_response({"error": "Invalid token"}, 401)
+
+    company = request.args.get('company')
+    if not company or company != client_slug:
+        return create_response({"error": "Invalid company"}, 403)
+
+    client = clients_collection.find_one({"slug": client_slug})
+    if not client or not client.get("calendar_tokens"):
+        return create_response({"error": "Calendar not connected"}, 404)
+
+    creds = Credentials(
+        token=client["calendar_tokens"]["token"],
+        refresh_token=client["calendar_tokens"]["refresh_token"],
+        token_uri=client["calendar_tokens"]["token_uri"],
+        client_id=client["calendar_tokens"]["client_id"],
+        client_secret=client["calendar_tokens"]["client_secret"],
+        scopes=client["calendar_tokens"]["scopes"]
+    )
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        clients_collection.update_one(
+            {"_id": client['_id']},
+            {"$set": {"calendar_tokens": {
+                "token": creds.token,
+                "refresh_token": creds.refresh_token,
+                "token_uri": creds.token_uri,
+                "client_id": creds.client_id,
+                "client_secret": creds.client_secret,
+                "scopes": creds.scopes
+            }}}
+        )
+
+    service = build('calendar', 'v3', credentials=creds)
+    now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+    end = now + timedelta(days=7)
+    freebusy = service.freebusy().query(body={
+        "timeMin": now.isoformat() + 'Z',
+        "timeMax": end.isoformat() + 'Z',
+        "items": [{"id": "primary"}]
+    }).execute()
+
+    busy = freebusy["calendars"]["primary"]["busy"]
+    slots = []
+    current = now
+    while current < end:
+        slot_end = current + timedelta(minutes=30)
+        if not any(
+            datetime.fromisoformat(b["start"].rstrip("Z")) < slot_end and
+            datetime.fromisoformat(b["end"].rstrip("Z")) > current
+            for b in busy
+        ):
+            slots.append(current.isoformat())
+        current = slot_end
+    return create_response({"slots": slots[:20]})
+
+@bp.route("/book", methods=["POST", "OPTIONS"])
+def book_appointment():
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
+        return response
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return create_response({"error": "Missing token"}, 401)
+
+    token = auth_header.split(' ')[1]
+    try:
+        payload = jwt.decode(token, os.getenv('FLASK_SECRET_KEY'), algorithms=['HS256'])
+        client_slug = payload.get('admin_client_slug')
+    except jwt.InvalidTokenError:
+        return create_response({"error": "Invalid token"}, 401)
+
+    data = request.get_json() or {}
+    slot = data.get("slot")
+    name = data.get("name")
+    email = data.get("email")
+    notes = data.get("notes", "")
+    company = data.get("company")
+
+    if not slot or not name or not email or not company or company != client_slug:
+        return create_response({"error": "Missing or invalid fields"}, 400)
+
+    client = clients_collection.find_one({"slug": client_slug})
+    if not client or not client.get("calendar_tokens"):
+        return create_response({"error": "Calendar not connected"}, 404)
+
+    creds = Credentials(
+        token=client["calendar_tokens"]["token"],
+        refresh_token=client["calendar_tokens"]["refresh_token"],
+        token_uri=client["calendar_tokens"]["token_uri"],
+        client_id=client["calendar_tokens"]["client_id"],
+        client_secret=client["client_secret"],
+        scopes=client["calendar_tokens"]["scopes"]
+    )
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        clients_collection.update_one(
+            {"_id": client['_id']},
+            {"$set": {"calendar_tokens": {
+                "token": creds.token,
+                "refresh_token": creds.refresh_token,
+                "token_uri": creds.token_uri,
+                "client_id": creds.client_id,
+                "client_secret": creds.client_secret,
+                "scopes": creds.scopes
+            }}}
+        )
+
+    service = build('calendar', 'v3', credentials=creds)
+    start = datetime.fromisoformat(slot)
+    end = start + timedelta(minutes=30)
+
+    # Check for double booking
+    freebusy = service.freebusy().query(body={
+        "timeMin": start.isoformat() + 'Z',
+        "timeMax": end.isoformat() + 'Z',
+        "items": [{"id": "primary"}]
+    }).execute()
+    if freebusy["calendars"]["primary"]["busy"]:
+        return create_response({"error": "Slot is no longer available"}, 409)
+
+    event = {
+        'summary': f'Appointment with {name}',
+        'description': f'Email: {email}\nNotes: {notes}',
+        'start': {'dateTime': start.isoformat(), 'timeZone': 'UTC'},
+        'end': {'dateTime': end.isoformat(), 'timeZone': 'UTC'},
+        'attendees': [{'email': email}],
+    }
+
+    try:
+        service.events().insert(calendarId='primary', body=event).execute()
+        return create_response({"success": True})
+    except Exception as e:
+        logger.error(f"Error creating event: {e}")
+        return create_response({"error": "Failed to book appointment"}, 500)
+    
 @bp.route("", methods=["GET", "OPTIONS"])
 @bp.route("/", methods=["GET", "OPTIONS"])
 def calendar_details():
@@ -240,34 +402,3 @@ def calendar_details():
 
     connected = bool(client.get("calendar_tokens"))
     return create_response({"connected": connected})
-
-# @bp.route("/status", methods=["GET"])
-# def calendar_status():
-#     admin_user_id = session.get("admin_user_id")
-#     client_slug = session.get("admin_client_slug")
-
-#     if not admin_user_id or not client_slug:
-#         return jsonify({"error": "Unauthorized"}), 401
-
-#     client = clients_collection.find_one({"slug": client_slug})
-    
-#     return jsonify({"connected": bool(client and client.get("calendar_tokens"))})
-
-
-# @bp.route("", methods=["GET"])
-# def calendar_details():
-#     admin_user_id = session.get("admin_user_id")
-#     client_slug = session.get("admin_client_slug")
-
-#     if not admin_user_id or not client_slug:
-#         return jsonify({"error": "Unauthorized"}), 401
-
-#     client = clients_collection.find_one({"slug": client_slug})
-
-#     if not client or not client.get("calendar_tokens"):
-#         return jsonify({"error": "No calendar connected"}), 404
-
-#     return jsonify({
-#         "calendar_id": client["calendar_id"],
-#         "tokens": client["calendar_tokens"],
-#     })
