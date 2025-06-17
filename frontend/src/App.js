@@ -1,6 +1,7 @@
 // src/App.js
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import AppointmentBookingModal from "./AppointmentBookingModal";
 import "./App.css";
 
 // your real chat API
@@ -11,6 +12,7 @@ export default function App({ company, configUrl }) {
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [showBookingModal, setShowBookingModal] = useState(false);
   const chatBoxRef = useRef(null);
 
   // Load the client config JSON
@@ -48,6 +50,19 @@ export default function App({ company, configUrl }) {
     setLoading(true);
 
     try {
+      // check for booking
+      // Check for booking command
+      if (msg.toLowerCase().includes("book")) {
+        setShowBookingModal(true);
+        setMessages((m) => {
+          const last = m[m.length - 1];
+          last.bot = "Opening appointment booking...";
+          return [...m.slice(0, -1), last];
+        });
+        setLoading(false);
+        return;
+      }
+
       const res = await axios.post(`${API_BASE_URL}/api/chat`, {
         query: msg,
         company,
@@ -81,6 +96,10 @@ export default function App({ company, configUrl }) {
     sendMessage(faq);
   };
 
+  const handleBookClick = () => {
+    sendMessage("book appointment");
+  };
+
   // Reset chat
   const handleReset = async () => {
     setMessages([]);
@@ -96,6 +115,20 @@ export default function App({ company, configUrl }) {
         setMessages([{ user: "", bot: `Hi I'm Clyde 🤓, ${config.welcome}` }]),
       200
     );
+  };
+
+  // Handle modal close
+  const handleModalClose = (status) => {
+    setShowBookingModal(false);
+    if (status === "success") {
+      setMessages((m) => [
+        ...m,
+        {
+          user: "",
+          bot: "Your appointment has been booked! Check your email for confirmation.",
+        },
+      ]);
+    }
   };
 
   // Show loading state for config
@@ -133,6 +166,14 @@ export default function App({ company, configUrl }) {
           <>
             <div className="faq-divider">Try a common question:</div>
             <div className="faq-buttons">
+              <button
+                onClick={handleBookClick}
+                className="faq-button"
+                disabled={loading}
+                aria-label="Book an appointment"
+              >
+                Book Appointment
+              </button>
               {config.faqs.map((q, idx) => (
                 <button
                   key={idx}
@@ -188,6 +229,10 @@ export default function App({ company, configUrl }) {
           </a>
         </div>
       </form>
+
+      {showBookingModal && (
+        <AppointmentBookingModal onClose={handleModalClose} company={company} />
+      )}
     </div>
   );
 }
