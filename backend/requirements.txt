@@ -23,6 +23,7 @@ frozenlist==1.5.0
 google-auth==2.40.1
 google-auth-httplib2==0.2.0
 google-auth-oauthlib==1.2.2
+google-api-python-client==2.111.0
 h11==0.14.0
 htmldate==1.9.3
 httpcore==1.0.8
