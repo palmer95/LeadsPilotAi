@@ -53,12 +53,15 @@
   border-radius: 4px;
   background: white;
   cursor: pointer;
-  text-align: center;
+  text-align: center; /* Ensure text is centered */
+  color: #000; /* Explicitly set text color to black */
+  text-indent: 0; /* Reset any indentation */
+  overflow: visible; /* Ensure text isn't clipped */
 }
 
 .slot-selected {
   background: #007bff;
-  color: white;
+  color: white; /* White text on selected button */
   border-color: #0056b3;
 }
 
