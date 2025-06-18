@@ -25,11 +25,12 @@ const AppointmentBookingModal = ({ onClose, company }) => {
           }
         );
         const fetchedSlots = res.data.slots || [];
+        const timezoneOffset = new Date().getTimezoneOffset() / 60; // Hours offset from UTC (e.g., -7 for PDT)
         const filteredSlots = fetchedSlots
           .map((slot) => new Date(slot))
           .filter((date) => {
-            const hour = date.getUTCHours();
-            return hour >= 9 && hour < 17; // 9 AM to 5 PM UTC
+            const localHour = date.getUTCHours() + timezoneOffset; // Convert to local hour
+            return localHour >= 9 && localHour < 17; // 9 AM to 5 PM local time
           })
           .map((date) => date.toISOString());
         setSlots(filteredSlots.slice(0, 20)); // Limit to 20 slots
