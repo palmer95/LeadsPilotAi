@@ -55,7 +55,7 @@ app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session expiry
 app.config["SESSION_COOKIE_NAME"] = "leadspilot_session"
 app.config['SESSION_COOKIE_DOMAIN'] = 'leadspilotai.onrender.com' 
 app.config['PREFERRED_URL_SCHEME'] = 'https'
-CORS(app, origins="*") # This allows credentials but will be controlled dynamically
+CORS(app, resources={r"/api/*": {"origins": "https://www.leadspilotai.com"}})
 
 @app.before_request
 def log_request():
