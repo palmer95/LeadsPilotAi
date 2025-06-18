@@ -1,171 +1,124 @@
 // src/components/AppointmentBookingModal.js
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import "./AppointmentBookingModal.css";
 
-export default function AppointmentBookingModal({ onClose, company }) {
+const API_BASE_URL = "https://leadspilotai.onrender.com";
+
+const AppointmentBookingModal = ({ onClose, company }) => {
   const [slots, setSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
-  const [formData, setFormData] = useState({ name: "", email: "", notes: "" });
-  const [status, setStatus] = useState(null);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchSlots = async () => {
-      const token = localStorage.getItem("authToken");
-      if (!token) {
-        setError("Please log in to book an appointment.");
-        return;
-      }
       try {
-        const res = await fetch(
-          `https://leadspilotai.onrender.com/api/admin/calendar/slots?company=${company}`,
+        const authToken = localStorage.getItem("authToken");
+        const res = await axios.get(
+          `${API_BASE_URL}/api/admin/calendar/slots?company=${company}`,
           {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { Authorization: `Bearer ${authToken}` },
           }
         );
-        if (!res.ok) throw new Error("Failed to fetch slots");
-        const data = await res.json();
-        setSlots(data.slots || []);
+        const fetchedSlots = res.data.slots || [];
+        const filteredSlots = fetchedSlots
+          .map((slot) => new Date(slot))
+          .filter((date) => {
+            const hour = date.getUTCHours();
+            return hour >= 9 && hour < 17; // 9 AM to 5 PM UTC
+          })
+          .map((date) => date.toISOString());
+        setSlots(filteredSlots.slice(0, 20)); // Limit to 20 slots
       } catch (err) {
-        setError("Could not load available slots. Try again later.");
+        setError("Failed to load slots. Please try again.");
+        console.error("Slot fetch error:", err);
+      } finally {
+        setLoading(false);
       }
     };
     fetchSlots();
   }, [company]);
 
-  const handleSubmit = async (e) => {
+  const handleBook = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem("authToken");
-    if (!token) {
-      setError("Please log in to book an appointment.");
+    if (!selectedSlot || !name || !email) {
+      setError("Please select a slot and fill out all fields.");
       return;
     }
+
     try {
-      const res = await fetch(
-        "https://leadspilotai.onrender.com/api/admin/calendar/book",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ slot: selectedSlot, ...formData, company }),
-        }
+      const authToken = localStorage.getItem("authToken");
+      await axios.post(
+        `${API_BASE_URL}/book`,
+        { slot: selectedSlot, name, email, notes, company },
+        { headers: { Authorization: `Bearer ${authToken}` } }
       );
-      const data = await res.json();
-      if (data.success) {
-        setStatus("success");
-      } else {
-        setError(data.error || "Booking failed. Try again.");
-      }
+      onClose("success");
     } catch (err) {
-      setError("Booking failed. Try again later.");
+      setError("Booking failed. Please try again.");
+      console.error("Booking error:", err);
     }
   };
 
-  if (error) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-        <div className="bg-white p-6 rounded-lg shadow-lg w-96">
-          <p className="text-red-600">{error}</p>
-          <button
-            onClick={() => onClose(null)}
-            className="mt-4 text-blue-600 underline"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-96">
-        <h2 className="text-xl font-bold text-blue-600 mb-4">
-          Book Appointment
-        </h2>
-        {!selectedSlot ? (
-          <div>
-            <h3 className="text-lg mb-2">Select a Slot</h3>
-            {slots.length === 0 ? (
-              <p className="text-gray-600">No slots available.</p>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {slots.map((slot) => (
-                  <button
-                    key={slot}
-                    onClick={() => setSelectedSlot(slot)}
-                    className="p-2 border border-blue-600 text-blue-600 rounded hover:bg-blue-100"
-                  >
-                    {new Date(slot).toLocaleString("en-US", {
-                      weekday: "short",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : !status ? (
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label className="block text-sm font-medium">Name</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium">Email</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium">Notes</label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) =>
-                  setFormData({ ...formData, notes: e.target.value })
-                }
-                className="w-full p-2 border rounded"
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700"
-            >
-              Book Now
-            </button>
-          </form>
-        ) : (
-          <div className="text-center">
-            {status === "success" ? (
-              <p className="text-green-600">Appointment booked!</p>
-            ) : (
-              <p className="text-red-600">Booking failed. Try again.</p>
-            )}
-            <button
-              onClick={() => onClose(status)}
-              className="mt-4 text-blue-600 underline"
-            >
-              Close
-            </button>
+    <div className="modal-overlay">
+      <div className="modal-content">
+        <button className="modal-close" onClick={() => onClose()}>
+          ×
+        </button>
+        <h2>Book Appointment</h2>
+        <h3>Select a Slot</h3>
+        {loading && <p>Loading slots...</p>}
+        {error && <p className="modal-error">{error}</p>}
+        {!loading && !error && (
+          <div className="slot-grid">
+            {slots.map((slot, index) => (
+              <button
+                key={index}
+                onClick={() => setSelectedSlot(slot)}
+                className={selectedSlot === slot ? "slot-selected" : "slot"}
+              >
+                {new Date(slot).toLocaleString("en-US", {
+                  weekday: "short",
+                  hour: "numeric",
+                  minute: "2-digit",
+                  hour12: true,
+                })}
+              </button>
+            ))}
           </div>
         )}
+        <form onSubmit={handleBook}>
+          <input
+            type="text"
+            placeholder="Your Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <input
+            type="email"
+            placeholder="Your Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <textarea
+            placeholder="Notes (optional)"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+          <button type="submit" disabled={loading || !selectedSlot}>
+            {loading ? "Booking..." : "Book Now"}
+          </button>
+        </form>
       </div>
     </div>
   );
-}
+};
+
+export default AppointmentBookingModal;
