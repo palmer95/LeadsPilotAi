@@ -203,17 +203,15 @@ def oauth_callback():
 
 def create_response(data, status=200):
     response = make_response(jsonify(data), status)
-    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Origin'] = 'https://www.leadspilotai.com'
+    response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'    
     return response
 
 @bp.route("/slots", methods=["GET", "OPTIONS"])
 def get_slots():
     if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Authorization'
-        return response
+        return create_response({}, 200)
 
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
@@ -282,11 +280,7 @@ def get_slots():
 @bp.route("/book", methods=["POST", "OPTIONS"])
 def book_appointment():
     if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
-        return response
+        return create_response({}, 200)
 
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
@@ -318,7 +312,7 @@ def book_appointment():
         refresh_token=client["calendar_tokens"]["refresh_token"],
         token_uri=client["calendar_tokens"]["token_uri"],
         client_id=client["calendar_tokens"]["client_id"],
-        client_secret=client["client_secret"],
+        client_secret=client["calendar_tokens"]["client_secret"],
         scopes=client["calendar_tokens"]["scopes"]
     )
     if creds.expired and creds.refresh_token:
@@ -339,7 +333,6 @@ def book_appointment():
     start = datetime.fromisoformat(slot)
     end = start + timedelta(minutes=30)
 
-    # Check for double booking
     freebusy = service.freebusy().query(body={
         "timeMin": start.isoformat() + 'Z',
         "timeMax": end.isoformat() + 'Z',
@@ -362,7 +355,7 @@ def book_appointment():
     except Exception as e:
         logger.error(f"Error creating event: {e}")
         return create_response({"error": "Failed to book appointment"}, 500)
-    
+        
 @bp.route("", methods=["GET", "OPTIONS"])
 @bp.route("/", methods=["GET", "OPTIONS"])
 def calendar_details():
