@@ -2,7 +2,7 @@ from flask import Blueprint, make_response, redirect, request, jsonify, current_
 import os
 from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
-from httplib2 import Credentials
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 
