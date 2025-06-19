@@ -1,45 +1,53 @@
-// src/components/AppointmentBookingModal.js
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./AppointmentBookingModal.css";
 
+interface AppointmentBookingModalProps {
+  onClose: (status?: string) => void;
+  company: string;
+}
+
 const API_BASE_URL = "https://leadspilotai.onrender.com";
 
-const AppointmentBookingModal = ({ onClose, company }) => {
-  const [slots, setSlots] = useState([]);
-  const [selectedSlot, setSelectedSlot] = useState(null);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [notes, setNotes] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
+  onClose,
+  company,
+}) => {
+  const [slots, setSlots] = useState<string[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [name, setName] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [notes, setNotes] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchSlots = async () => {
       try {
         const authToken = localStorage.getItem("authToken");
-        const res = await axios.get(
+        const res = await axios.get<{ slots: string[] }>(
           `${API_BASE_URL}/api/admin/calendar/slots?company=${company}`,
           {
             headers: { Authorization: `Bearer ${authToken}` },
           }
         );
+
         const fetchedSlots = res.data.slots || [];
 
-        console.log("Raw slots from backend: ", fetchedSlots);
-
-        const filteredSlots = fetchedSlots
-          .map((slot) => new Date(slot + "Z")) // Ensure it's treated as UTC
-          .filter((date) => {
-            const localHour = date.getHours(); // local time
-            console.log(date.toLocaleString(), "→", localHour);
-            return localHour >= 9 && localHour < 17;
+        const localSlots = fetchedSlots
+          .map((slot) => {
+            const date = new Date(slot);
+            return {
+              raw: slot,
+              localHour: date.getHours(),
+            };
           })
-          .map((date) => date.toISOString());
+          .filter(({ localHour }) => localHour >= 9 && localHour < 17)
+          .map(({ raw }) => raw)
+          .slice(0, 12);
 
-        console.log("Filtered (9am-5pm) slots:", filteredSlots);
-
-        setSlots(filteredSlots.slice(0, 20));
+        setSlots(localSlots);
       } catch (err) {
         setError("Failed to load slots. Please try again.");
         console.error("Slot fetch error:", err);
@@ -47,10 +55,11 @@ const AppointmentBookingModal = ({ onClose, company }) => {
         setLoading(false);
       }
     };
+
     fetchSlots();
   }, [company]);
 
-  const handleBook = async (e) => {
+  const handleBook = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!selectedSlot || !name || !email) {
       setError("Please select a slot and fill out all fields.");
@@ -64,12 +73,24 @@ const AppointmentBookingModal = ({ onClose, company }) => {
         { slot: selectedSlot, name, email, notes, company },
         { headers: { Authorization: `Bearer ${authToken}` } }
       );
-      onClose("success");
+      setSuccess(true);
     } catch (err) {
       setError("Booking failed. Please try again.");
       console.error("Booking error:", err);
     }
   };
+
+  if (success) {
+    return (
+      <div className="modal-overlay">
+        <div className="modal-content">
+          <h2>✅ Appointment Booked!</h2>
+          <p>You’ll receive a confirmation email shortly.</p>
+          <button onClick={() => onClose("success")}>Close</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="modal-overlay">
@@ -79,8 +100,10 @@ const AppointmentBookingModal = ({ onClose, company }) => {
         </button>
         <h2>Book Appointment</h2>
         <h3>Select a Slot</h3>
+
         {loading && <p>Loading slots...</p>}
         {error && <p className="modal-error">{error}</p>}
+
         {!loading && !error && (
           <div className="slot-grid">
             {slots.map((slot, index) => (
@@ -99,6 +122,7 @@ const AppointmentBookingModal = ({ onClose, company }) => {
             ))}
           </div>
         )}
+
         <form onSubmit={handleBook}>
           <input
             type="text"
