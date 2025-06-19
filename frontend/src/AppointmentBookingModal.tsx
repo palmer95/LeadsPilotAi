@@ -25,15 +25,15 @@ const AppointmentBookingModal = ({ onClose, company }) => {
           }
         );
         const fetchedSlots = res.data.slots || [];
-        const timezoneOffset = new Date().getTimezoneOffset() / 60; // Hours offset from UTC (e.g., -7 for PDT)
         const filteredSlots = fetchedSlots
           .map((slot) => new Date(slot))
           .filter((date) => {
-            const localHour = date.getUTCHours() + timezoneOffset; // Convert to local hour
-            return localHour >= 9 && localHour < 17; // 9 AM to 5 PM local time
+            const localHour = date.getHours(); // LOCAL hour
+            return localHour >= 9 && localHour < 17;
           })
           .map((date) => date.toISOString());
-        setSlots(filteredSlots.slice(0, 20)); // Limit to 20 slots
+
+        setSlots(filteredSlots.slice(0, 20));
       } catch (err) {
         setError("Failed to load slots. Please try again.");
         console.error("Slot fetch error:", err);
@@ -54,7 +54,7 @@ const AppointmentBookingModal = ({ onClose, company }) => {
     try {
       const authToken = localStorage.getItem("authToken");
       await axios.post(
-        `${API_BASE_URL}/book`,
+        `${API_BASE_URL}api/admin/calendar/book`,
         { slot: selectedSlot, name, email, notes, company },
         { headers: { Authorization: `Bearer ${authToken}` } }
       );
