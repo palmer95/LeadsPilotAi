@@ -4,8 +4,10 @@ from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from dateutil import parser
+from pytz import timezone as pytz_timezone
+
 from pymongo import MongoClient
 from bson import ObjectId
 from dotenv import load_dotenv
@@ -16,6 +18,8 @@ import jwt
 
 
 load_dotenv()
+
+local_tz = pytz_timezone("America/Los_Angeles")  # For Pacific Time, later pull this from client config
 
 
 # setup logging
@@ -362,8 +366,8 @@ def book_appointment():
     event = {
         'summary': f'Appointment with {name}',
         'description': f'Email: {email}\nNotes: {notes}',
-        'start': {'dateTime': start.isoformat().replace("+00:00", "Z"), 'timeZone': 'UTC'},
-        'end': {'dateTime': end.isoformat().replace("+00:00", "Z"), 'timeZone': 'UTC'},
+        'start': {'dateTime': start.isoformat().replace("+00:00", "Z"),'timeZone': 'America/Los_Angeles'},
+        'end': {'dateTime': end.isoformat().replace("+00:00", "Z"), 'timeZone': 'America/Los_Angeles'},
         'attendees': [{'email': email}],
     }
 
