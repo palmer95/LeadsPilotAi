@@ -29,9 +29,10 @@ const AppointmentBookingModal = ({ onClose, company }) => {
         console.log("Raw slots from backend: ", fetchedSlots);
 
         const filteredSlots = fetchedSlots
-          .map((slot) => new Date(slot))
+          .map((slot) => new Date(slot + "Z")) // Ensure it's treated as UTC
           .filter((date) => {
-            const localHour = date.getHours(); // Local time already
+            const localHour = date.getHours(); // local time
+            console.log(date.toLocaleString(), "→", localHour);
             return localHour >= 9 && localHour < 17;
           })
           .map((date) => date.toISOString());
