@@ -35,19 +35,8 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
 
         const fetchedSlots = res.data.slots || [];
 
-        const localSlots = fetchedSlots
-          .map((slot) => {
-            const date = new Date(slot);
-            return {
-              raw: slot,
-              localHour: date.getHours(),
-            };
-          })
-          .filter(({ localHour }) => localHour >= 9 && localHour < 17)
-          .map(({ raw }) => raw)
-          .slice(0, 12);
-
-        setSlots(localSlots);
+        // ✅ Just show next 12 slots — trust backend
+        setSlots(fetchedSlots.slice(0, 12));
       } catch (err) {
         setError("Failed to load slots. Please try again.");
         console.error("Slot fetch error:", err);
