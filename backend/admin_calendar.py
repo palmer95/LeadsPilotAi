@@ -211,11 +211,7 @@ def create_response(data, status=200):
 @bp.route("/slots", methods=["GET", "OPTIONS"])
 def get_slots():
     if request.method == 'OPTIONS':
-        response = make_response()
-        response.stat
-        response.headers['Access-Control-Allow-Origin'] = 'https://www.leadspilotai.com'
-        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
+        response = create_response()
         return response
 
     auth_header = request.headers.get('Authorization')
