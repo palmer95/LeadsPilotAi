@@ -211,7 +211,12 @@ def create_response(data, status=200):
 @bp.route("/slots", methods=["GET", "OPTIONS"])
 def get_slots():
     if request.method == 'OPTIONS':
-        return create_response({}, 200)
+        response = make_response()
+        response.stat
+        response.headers['Access-Control-Allow-Origin'] = 'https://www.leadspilotai.com'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
+        return response
 
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
@@ -280,7 +285,12 @@ def get_slots():
 @bp.route("/book", methods=["POST", "OPTIONS"])
 def book_appointment():
     if request.method == 'OPTIONS':
-        return create_response({}, 200)
+        response = make_response()
+        response.status_code = 200
+        response.headers['Access-Control-Allow-Origin'] = 'https://www.leadspilotai.com'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
+        return response
 
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
