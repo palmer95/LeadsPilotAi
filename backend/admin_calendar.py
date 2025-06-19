@@ -211,7 +211,11 @@ def create_response(data, status=200):
 @bp.route("/slots", methods=["GET", "OPTIONS"])
 def get_slots():
     if request.method == 'OPTIONS':
-        response = create_response()
+        response = make_response()
+        response.status_code = 200
+        response.headers['Access-Control-Allow-Origin'] = 'https://www.leadspilotai.com'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
         return response
 
     auth_header = request.headers.get('Authorization')
@@ -361,7 +365,7 @@ def book_appointment():
     except Exception as e:
         logger.error(f"Error creating event: {e}")
         return create_response({"error": "Failed to book appointment"}, 500)
-        
+
 @bp.route("", methods=["GET", "OPTIONS"])
 @bp.route("/", methods=["GET", "OPTIONS"])
 def calendar_details():
