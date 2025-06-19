@@ -4,7 +4,7 @@ from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from pymongo import MongoClient
 from bson import ObjectId
@@ -262,6 +262,7 @@ def get_slots():
     service = build('calendar', 'v3', credentials=creds)
     now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
     end = now + timedelta(days=7)
+    
     freebusy = service.freebusy().query(body={
         "timeMin": now.isoformat() + 'Z',
         "timeMax": end.isoformat() + 'Z',
@@ -340,22 +341,32 @@ def book_appointment():
         )
 
     service = build('calendar', 'v3', credentials=creds)
-    start = datetime.fromisoformat(slot)
+    # start = datetime.fromisoformat(slot)
+    # end = start + timedelta(minutes=30)
+
+    start = datetime.fromisoformat(slot).astimezone(timezone.utc)
     end = start + timedelta(minutes=30)
 
     freebusy = service.freebusy().query(body={
-        "timeMin": start.isoformat() + 'Z',
-        "timeMax": end.isoformat() + 'Z',
+        "timeMin": start.isoformat().replace("+00:00", "Z"),
+        "timeMax": end.isoformat().replace("+00:00", "Z"),
         "items": [{"id": "primary"}]
     }).execute()
+    
     if freebusy["calendars"]["primary"]["busy"]:
         return create_response({"error": "Slot is no longer available"}, 409)
 
     event = {
         'summary': f'Appointment with {name}',
         'description': f'Email: {email}\nNotes: {notes}',
-        'start': {'dateTime': start.isoformat(), 'timeZone': 'UTC'},
-        'end': {'dateTime': end.isoformat(), 'timeZone': 'UTC'},
+        'start': {
+            'dateTime': start.isoformat().replace("+00:00", "Z"),
+            'timeZone': 'UTC'
+        },
+        'end': {
+            'dateTime': end.isoformat().replace("+00:00", "Z"),
+            'timeZone': 'UTC'
+        },
         'attendees': [{'email': email}],
     }
 
