@@ -5,7 +5,8 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta, timezone
-
+from dateutil import parser
+from pytz import timezone as pytz_timezone
 from pymongo import MongoClient
 from bson import ObjectId
 from dotenv import load_dotenv
@@ -16,6 +17,9 @@ import jwt
 
 
 load_dotenv()
+
+local_tz = pytz_timezone("America/Los_Angeles")  # Later make this dynamic per client
+
 
 # setup logging
 # Set up logging
@@ -344,7 +348,7 @@ def book_appointment():
     # start = datetime.fromisoformat(slot)
     # end = start + timedelta(minutes=30)
 
-    start = datetime.fromisoformat(slot).astimezone(timezone.utc)
+    start = parser.isoparse(slot).replace(tzinfo=local_tz).astimezone(timezone.utc)
     end = start + timedelta(minutes=30)
 
     freebusy = service.freebusy().query(body={
@@ -371,7 +375,11 @@ def book_appointment():
     }
 
     try:
-        service.events().insert(calendarId='primary', body=event).execute()
+        service.events().insert(
+            calendarId='primary',
+            body=event,
+            sendUpdates='all'  # <--- this is the key
+        ).execute()
         return create_response({"success": True})
     except Exception as e:
         logger.error(f"Error creating event: {e}")
