@@ -25,13 +25,18 @@ const AppointmentBookingModal = ({ onClose, company }) => {
           }
         );
         const fetchedSlots = res.data.slots || [];
+
+        console.log("Raw slots from backend: ", fetchedSlots);
+
         const filteredSlots = fetchedSlots
           .map((slot) => new Date(slot))
           .filter((date) => {
-            const localHour = date.getHours(); // LOCAL hour
+            const localHour = date.getHours(); // Local time already
             return localHour >= 9 && localHour < 17;
           })
           .map((date) => date.toISOString());
+
+        console.log("Filtered (9am-5pm) slots:", filteredSlots);
 
         setSlots(filteredSlots.slice(0, 20));
       } catch (err) {
