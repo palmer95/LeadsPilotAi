@@ -344,16 +344,20 @@ def book_appointment():
             }}}
         )
 
-    service = build('calendar', 'v3', credentials=creds)
-    # start = datetime.fromisoformat(slot)
-    # end = start + timedelta(minutes=30)
+    logger.info(f"Raw slot from frontend: {slot}")
 
-    start = parser.isoparse(slot).replace(tzinfo=local_tz).astimezone(timezone.utc)
-    end = start + timedelta(minutes=30)
+    service = build('calendar', 'v3', credentials=creds)
+
+    start = parser.isoparse(slot).astimezone(local_tz)
+    start = start.replace(minute=(start.minute // 30) * 30, second=0, microsecond=0)
+
+    # Convert to UTC for Google Calendar
+    start_utc = start.astimezone(timezone.utc)
+    end_utc = start_utc + timedelta(minutes=30)
 
     freebusy = service.freebusy().query(body={
-        "timeMin": start.isoformat().replace("+00:00", "Z"),
-        "timeMax": end.isoformat().replace("+00:00", "Z"),
+        "timeMin": start_utc.isoformat().replace("+00:00", "Z"),
+        "timeMax": end_utc.isoformat().replace("+00:00", "Z"),
         "items": [{"id": "primary"}]
     }).execute()
     
@@ -363,14 +367,8 @@ def book_appointment():
     event = {
         'summary': f'Appointment with {name}',
         'description': f'Email: {email}\nNotes: {notes}',
-        'start': {
-            'dateTime': start.isoformat().replace("+00:00", "Z"),
-            'timeZone': 'UTC'
-        },
-        'end': {
-            'dateTime': end.isoformat().replace("+00:00", "Z"),
-            'timeZone': 'UTC'
-        },
+        'start': {'dateTime': start_utc.isoformat().replace("+00:00", "Z"), 'timeZone': 'UTC'},
+        'end': {'dateTime': end_utc.isoformat().replace("+00:00", "Z"), 'timeZone': 'UTC'},
         'attendees': [{'email': email}],
     }
 
