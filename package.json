@@ -11,15 +11,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/palmer95/PromptlyAI.git"
+    "url": "git+https://github.com/palmer95/LeadsPilotAi"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/palmer95/PromptlyAI/issues"
+    "url": "https://github.com/palmer95/LeadsPilotAi/issues"
   },
-  "homepage": "https://github.com/palmer95/PromptlyAI#readme",
+  "homepage": "https://github.com/palmer95/LeadsPilotAi#readme",
   "dependencies": {
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
