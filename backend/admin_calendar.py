@@ -6,7 +6,6 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta, timezone
 from dateutil import parser
-from pytz import timezone as pytz_timezone
 from pymongo import MongoClient
 from bson import ObjectId
 from dotenv import load_dotenv
@@ -17,8 +16,6 @@ import jwt
 
 
 load_dotenv()
-
-local_tz = pytz_timezone("America/Los_Angeles")  # Later make this dynamic per client
 
 
 # setup logging
@@ -348,16 +345,14 @@ def book_appointment():
 
     service = build('calendar', 'v3', credentials=creds)
 
-    start = parser.isoparse(slot).astimezone(local_tz)
+    # Slot is already in UTC from frontend ("2025-06-19T23:30:00.000Z")
+    start = parser.isoparse(slot)  # timezone-aware datetime
     start = start.replace(minute=(start.minute // 30) * 30, second=0, microsecond=0)
-
-    # Convert to UTC for Google Calendar
-    start_utc = start.astimezone(timezone.utc)
-    end_utc = start_utc + timedelta(minutes=30)
+    end = start + timedelta(minutes=30)
 
     freebusy = service.freebusy().query(body={
-        "timeMin": start_utc.isoformat().replace("+00:00", "Z"),
-        "timeMax": end_utc.isoformat().replace("+00:00", "Z"),
+        "timeMin": start.isoformat().replace("+00:00", "Z"),
+        "timeMax": end.isoformat().replace("+00:00", "Z"),
         "items": [{"id": "primary"}]
     }).execute()
     
@@ -367,8 +362,8 @@ def book_appointment():
     event = {
         'summary': f'Appointment with {name}',
         'description': f'Email: {email}\nNotes: {notes}',
-        'start': {'dateTime': start_utc.isoformat().replace("+00:00", "Z"), 'timeZone': 'UTC'},
-        'end': {'dateTime': end_utc.isoformat().replace("+00:00", "Z"), 'timeZone': 'UTC'},
+        'start': {'dateTime': start.isoformat().replace("+00:00", "Z"), 'timeZone': 'UTC'},
+        'end': {'dateTime': end.isoformat().replace("+00:00", "Z"), 'timeZone': 'UTC'},
         'attendees': [{'email': email}],
     }
 
