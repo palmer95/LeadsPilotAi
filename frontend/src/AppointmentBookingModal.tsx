@@ -60,7 +60,7 @@ const AppointmentBookingModal = ({ onClose, company }) => {
     try {
       const authToken = localStorage.getItem("authToken");
       await axios.post(
-        `${API_BASE_URL}api/admin/calendar/book`,
+        `${API_BASE_URL}/api/admin/calendar/book`,
         { slot: selectedSlot, name, email, notes, company },
         { headers: { Authorization: `Bearer ${authToken}` } }
       );
