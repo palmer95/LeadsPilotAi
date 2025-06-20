@@ -349,32 +349,24 @@ def book_appointment():
 
     service = build('calendar', 'v3', credentials=creds)
 
-    # Slot is already in UTC from frontend ("2025-06-19T23:30:00.000Z")
-    start = parser.isoparse(slot)  # timezone-aware datetime
+    # Slot is already in UTC from frontend (e.g. "2025-06-19T23:30:00.000Z")
+    start = parser.isoparse(slot)
     start = start.replace(minute=(start.minute // 30) * 30, second=0, microsecond=0)
     end = start + timedelta(minutes=30)
-
-    calendar_id = "primary"  # Can be customized per user later if needed
-    logger.info(f"Booking slot: {start.isoformat()} to {end.isoformat()}")
-    logger.info(f"Calendar ID: {calendar_id}")
-
-    # Validate calendar ID (defensive guard)
-    if not calendar_id:
-        return create_response({"error": "Missing calendar ID"}, 400)
 
     freebusy = service.freebusy().query(body={
         "timeMin": start.isoformat().replace("+00:00", "Z"),
         "timeMax": end.isoformat().replace("+00:00", "Z"),
-        "items": [{"id": calendar_id}]
+        "items": [{"id": "primary"}]
     }).execute()
-    
+
     if freebusy["calendars"]["primary"]["busy"]:
         return create_response({"error": "Slot is no longer available"}, 409)
 
     event = {
         'summary': f'Appointment with {name}',
         'description': f'Email: {email}\nNotes: {notes}',
-        'start': {'dateTime': start.isoformat().replace("+00:00", "Z"),'timeZone': 'America/Los_Angeles'},
+        'start': {'dateTime': start.isoformat().replace("+00:00", "Z"), 'timeZone': 'America/Los_Angeles'},
         'end': {'dateTime': end.isoformat().replace("+00:00", "Z"), 'timeZone': 'America/Los_Angeles'},
         'attendees': [{'email': email}],
     }
@@ -383,7 +375,7 @@ def book_appointment():
         service.events().insert(
             calendarId='primary',
             body=event,
-            sendUpdates='all'  # <--- this is the key
+            sendUpdates='all'
         ).execute()
         return create_response({"success": True})
     except Exception as e:
