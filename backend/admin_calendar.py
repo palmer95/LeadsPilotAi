@@ -379,11 +379,11 @@ def book_appointment():
             'summary': f'Appointment with {name}',
             'description': f'Email: {email}\nNotes: {notes}',
             'start': {
-                'dateTime': start.isoformat().replace("+00:00", "Z"),
+                'dateTime': start.astimezone(local_tz).replace("+00:00", "Z"),
                 'timeZone': 'America/Los_Angeles'
             },
             'end': {
-                'dateTime': end.isoformat().replace("+00:00", "Z"),
+                'dateTime': end.astimezone(local_tz).replace("+00:00", "Z"),
                 'timeZone': 'America/Los_Angeles'
             },
             'attendees': [{'email': email}],
