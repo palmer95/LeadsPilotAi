@@ -26,12 +26,8 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
   useEffect(() => {
     const fetchSlots = async () => {
       try {
-        const authToken = localStorage.getItem("authToken");
         const res = await axios.get<{ slots: string[] }>(
-          `${API_BASE_URL}/api/admin/calendar/slots?company=${company}`,
-          {
-            headers: { Authorization: `Bearer ${authToken}` },
-          }
+          `${API_BASE_URL}/api/admin/calendar/slots?company=${company}`
         );
 
         const fetchedSlots = res.data.slots || [];
