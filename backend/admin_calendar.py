@@ -1,3 +1,4 @@
+from zoneinfo import ZoneInfo
 from flask import Blueprint, make_response, redirect, request, jsonify, current_app as app
 import os
 from google_auth_oauthlib.flow import Flow
@@ -374,20 +375,28 @@ def book_appointment():
         if freebusy["calendars"]["primary"]["busy"]:
             return create_response({"error": "Slot is no longer available"}, 409)
 
+        pacific = ZoneInfo("America/Los_Angeles")
+        start_local = start.astimezone(pacific)
+        end_local = start.astimezone(pacific)
         # Book the event
         event = {
             'summary': f'Appointment with {name}',
             'description': f'Email: {email}\nNotes: {notes}',
             'start': {
-                'dateTime': start.isoformat().replace('+00:00', 'Z'),
+                'dateTime': start_local.isoformat(),
                 'timeZone': 'America/Los_Angeles'
             },
             'end': {
-                'dateTime': end.isoformat().replace('+00:00', 'Z'),
+                'dateTime': end_local.isoformat(),
                 'timeZone': 'America/Los_Angeles'
             },
             'attendees': [{'email': email}],
         }
+
+        logger.info(f"Sending to Google Calendar:")
+        logger.info(f"Start datetime: {start.isoformat()} (UTC)")
+        logger.info(f"End datetime: {end.isoformat()} (UTC)")
+        logger.info(f"Event payload: {json.dumps(event, indent=2)}")
 
         service.events().insert(
             calendarId='primary',
