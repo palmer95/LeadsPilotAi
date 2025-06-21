@@ -299,16 +299,7 @@ def book_appointment():
         response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
         return response
 
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return create_response({"error": "Missing token"}, 401)
-
-    token = auth_header.split(' ')[1]
-    try:
-        payload = jwt.decode(token, os.getenv('FLASK_SECRET_KEY'), algorithms=['HS256'])
-        client_slug = payload.get('admin_client_slug')
-    except jwt.InvalidTokenError:
-        return create_response({"error": "Invalid token"}, 401)
+   
 
     data = request.get_json() or {}
     slot = data.get("slot")
@@ -317,8 +308,11 @@ def book_appointment():
     notes = data.get("notes", "")
     company = data.get("company")
 
-    if not slot or not name or not email or not company or company != client_slug:
+    if not slot or not name or not email or not company:
         return create_response({"error": "Missing or invalid fields"}, 400)
+    
+    client_slug = company
+
 
     client = clients_collection.find_one({"slug": client_slug})
     if not client or not client.get("calendar_tokens"):
@@ -350,6 +344,7 @@ def book_appointment():
 
     service = build('calendar', 'v3', credentials=creds)
 
+    # DO NOT TOUCH THIS BLOCK GETTING THIS WORKING WAS A NIGHTMARE IT WORKS NOW LEAVE IT ALONE
     try:
         # Slot from frontend is UTC — make it aware
         start = parser.isoparse(slot).replace(tzinfo=ZoneInfo("America/Los_Angeles"))
@@ -390,10 +385,15 @@ def book_appointment():
             'attendees': [{'email': email}],
         }
 
-        logger.info(f"Sending to Google Calendar:")
-        logger.info(f"Start datetime: {start.isoformat()} (UTC)")
-        logger.info(f"End datetime: {end.isoformat()} (UTC)")
-        logger.info(f"Event payload: {json.dumps(event, indent=2)}")
+        # Double-check slot is still free before booking
+        freebusy_check = service.freebusy().query(body={
+            "timeMin": time_min,
+            "timeMax": time_max,
+            "items": [{"id": "primary"}]
+        }).execute()
+
+        if freebusy_check["calendars"]["primary"]["busy"]:
+            return create_response({"error": "Slot just got taken"}, 409)
 
         service.events().insert(
             calendarId='primary',
