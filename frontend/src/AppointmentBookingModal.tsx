@@ -15,6 +15,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
 }) => {
   const [slots, setSlots] = useState<string[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [bookedSlot, setBookedSlot] = useState<string | null>(null);
   const [name, setName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
@@ -56,12 +57,13 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
     }
 
     try {
-      const authToken = localStorage.getItem("authToken");
+      //const authToken = localStorage.getItem("authToken");
       await axios.post(
         `${API_BASE_URL}/api/admin/calendar/book`,
-        { slot: selectedSlot, name, email, notes, company },
-        { headers: { Authorization: `Bearer ${authToken}` } }
+        { slot: selectedSlot, name, email, notes, company }
+        //{ headers: { Authorization: `Bearer ${authToken}` } }
       );
+      setBookedSlot(selectedSlot);
       setSuccess(true);
     } catch (err) {
       setError("Booking failed. Please try again.");
@@ -70,10 +72,24 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
   };
 
   if (success) {
+    const dateStr = bookedSlot
+      ? new Date(bookedSlot).toLocaleString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+          timeZone: "America/Los_Angeles", // <- ✅ render in PST
+        })
+      : "";
     return (
       <div className="modal-overlay">
         <div className="modal-content">
           <h2>✅ Appointment Booked!</h2>
+          {dateStr && (
+            <p style={{ fontWeight: "bold", marginTop: "0.5em" }}>{dateStr}</p>
+          )}
           <p>You’ll receive a confirmation email shortly.</p>
           <button onClick={() => onClose("success")}>Close</button>
         </div>
