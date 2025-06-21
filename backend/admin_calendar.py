@@ -349,36 +349,46 @@ def book_appointment():
 
     service = build('calendar', 'v3', credentials=creds)
 
-    # Slot is already in UTC from frontend
-    start = parser.isoparse(slot).replace(minute=(parser.isoparse(slot).minute // 30) * 30, second=0, microsecond=0)
-    end = start + timedelta(minutes=30)
-
-    # Check availability
-    freebusy = service.freebusy().query(body={
-        "timeMin": start.isoformat().replace("+00:00", "Z"),
-        "timeMax": end.isoformat().replace("+00:00", "Z"),
-        "items": [{"id": "primary"}]
-    }).execute()
-
-    if freebusy["calendars"]["primary"]["busy"]:
-        return create_response({"error": "Slot is no longer available"}, 409)
-
-    # Create calendar event
-    event = {
-        'summary': f'Appointment with {name}',
-        'description': f'Email: {email}\nNotes: {notes}',
-        'start': {
-            'dateTime': start.isoformat().replace("+00:00", "Z"),
-            'timeZone': 'America/Los_Angeles'
-        },
-        'end': {
-            'dateTime': end.isoformat().replace("+00:00", "Z"),
-            'timeZone': 'America/Los_Angeles'
-        },
-        'attendees': [{'email': email}],
-    }
-
     try:
+        # Slot from frontend is UTC — make it aware
+        start = parser.isoparse(slot)
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+
+        start = start.replace(minute=(start.minute // 30) * 30, second=0, microsecond=0)
+        end = start + timedelta(minutes=30)
+
+        # freebusy requires RFC3339 timestamp with 'Z'
+        time_min = start.isoformat().replace('+00:00', 'Z')
+        time_max = end.isoformat().replace('+00:00', 'Z')
+
+        logger.info(f"timeMin: {time_min}, timeMax: {time_max}")
+
+        # Confirm slot still free
+        freebusy = service.freebusy().query(body={
+            "timeMin": time_min,
+            "timeMax": time_max,
+            "items": [{"id": "primary"}]
+        }).execute()
+
+        if freebusy["calendars"]["primary"]["busy"]:
+            return create_response({"error": "Slot is no longer available"}, 409)
+
+        # Book the event
+        event = {
+            'summary': f'Appointment with {name}',
+            'description': f'Email: {email}\nNotes: {notes}',
+            'start': {
+                'dateTime': start.isoformat().replace("+00:00", "Z"),
+                'timeZone': 'America/Los_Angeles'
+            },
+            'end': {
+                'dateTime': end.isoformat().replace("+00:00", "Z"),
+                'timeZone': 'America/Los_Angeles'
+            },
+            'attendees': [{'email': email}],
+        }
+
         service.events().insert(
             calendarId='primary',
             body=event,
