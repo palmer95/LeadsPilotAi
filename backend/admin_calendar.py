@@ -4,7 +4,7 @@ from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dateutil import parser
 from pytz import timezone as pytz_timezone
 
@@ -349,11 +349,11 @@ def book_appointment():
 
     service = build('calendar', 'v3', credentials=creds)
 
-    # Slot is already in UTC from frontend (e.g. "2025-06-19T23:30:00.000Z")
-    start = parser.isoparse(slot)
-    start = start.replace(minute=(start.minute // 30) * 30, second=0, microsecond=0)
+    # Slot is already in UTC from frontend
+    start = parser.isoparse(slot).replace(minute=(parser.isoparse(slot).minute // 30) * 30, second=0, microsecond=0)
     end = start + timedelta(minutes=30)
 
+    # Check availability
     freebusy = service.freebusy().query(body={
         "timeMin": start.isoformat().replace("+00:00", "Z"),
         "timeMax": end.isoformat().replace("+00:00", "Z"),
@@ -363,11 +363,18 @@ def book_appointment():
     if freebusy["calendars"]["primary"]["busy"]:
         return create_response({"error": "Slot is no longer available"}, 409)
 
+    # Create calendar event
     event = {
         'summary': f'Appointment with {name}',
         'description': f'Email: {email}\nNotes: {notes}',
-        'start': {'dateTime': start.isoformat().replace("+00:00", "Z"), 'timeZone': 'America/Los_Angeles'},
-        'end': {'dateTime': end.isoformat().replace("+00:00", "Z"), 'timeZone': 'America/Los_Angeles'},
+        'start': {
+            'dateTime': start.isoformat().replace("+00:00", "Z"),
+            'timeZone': 'America/Los_Angeles'
+        },
+        'end': {
+            'dateTime': end.isoformat().replace("+00:00", "Z"),
+            'timeZone': 'America/Los_Angeles'
+        },
         'attendees': [{'email': email}],
     }
 
