@@ -224,22 +224,12 @@ def get_slots():
         response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
         return response
 
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return create_response({"error": "Missing token"}, 401)
-
-    token = auth_header.split(' ')[1]
-    try:
-        payload = jwt.decode(token, os.getenv('FLASK_SECRET_KEY'), algorithms=['HS256'])
-        client_slug = payload.get('admin_client_slug')
-    except jwt.InvalidTokenError:
-        return create_response({"error": "Invalid token"}, 401)
-
+   # this assumes its the actual client_slug
     company = request.args.get('company')
-    if not company or company != client_slug:
-        return create_response({"error": "Invalid company"}, 403)
+    if not company:
+        return create_response({"error": "Missing company"}, 403)
 
-    client = clients_collection.find_one({"slug": client_slug})
+    client = clients_collection.find_one({"slug": company})
     if not client or not client.get("calendar_tokens"):
         return create_response({"error": "Calendar not connected"}, 404)
 
