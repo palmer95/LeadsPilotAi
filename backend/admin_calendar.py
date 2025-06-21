@@ -352,10 +352,7 @@ def book_appointment():
 
     try:
         # Slot from frontend is UTC — make it aware
-        start = parser.isoparse(slot)
-        if start.tzinfo is None:
-            start = start.replace(tzinfo=timezone.utc)
-
+        start = parser.isoparse(slot).replace(tzinfo=ZoneInfo("America/Los_Angeles"))
         start = start.replace(minute=(start.minute // 30) * 30, second=0, microsecond=0)
         end = start + timedelta(minutes=30)
 
