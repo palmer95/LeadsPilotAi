@@ -12,7 +12,8 @@ from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
 from datetime import datetime
 from werkzeug.middleware.proxy_fix import ProxyFix
-
+from uuid import uuid4
+from pymongo import MongoClient
 
 from onboard import bp as onboard_bp
 from admin_auth import bp as admin_auth_bp
@@ -56,6 +57,11 @@ app.config["SESSION_COOKIE_NAME"] = "leadspilot_session"
 app.config['SESSION_COOKIE_DOMAIN'] = 'leadspilotai.onrender.com' 
 app.config['PREFERRED_URL_SCHEME'] = 'https'
 CORS(app, resources={r"/api/*": {"origins": "https://www.leadspilotai.com"}})
+
+MONGO_URI = os.getenv("MONGO_URI")
+mongo_client = MongoClient(MONGO_URI)
+db = mongo_client['leadsPilotAI']
+conversations_collection = db["conversations"]
 
 @app.before_request
 def log_request():
@@ -296,10 +302,28 @@ Respond as Clyde.
 
     # Normal QA for idle or excited state
     try:
-        logger.info(f"Processing QA for {company}: {user_input}")
         result = qa_chain({"question": user_input})
         response_text = result.get("answer", "").strip()
-        logger.info(f"QA response for {company}: {response_text[:100]}...")
+
+        # Store the conversation turn
+        conversations_collection.update_one(
+            {"session_id": session_id, "company": company},
+            {
+                "$push": {
+                    "messages": {
+                        "timestamp": datetime.utcnow(),
+                        "user": user_input,
+                        "bot": response_text
+                    }
+                },
+                "$setOnInsert": {
+                    "session_id": session_id,
+                    "company": company,
+                    "created_at": datetime.utcnow()
+                }
+            },
+            upsert=True
+        )
 
         for pkg in CONFIG["packages"]:
             if pkg["name"].lower() in response_text.lower():
