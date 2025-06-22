@@ -8,7 +8,7 @@ from googleapiclient.discovery import build
 from datetime import datetime, timedelta, timezone
 from dateutil import parser
 from pytz import timezone as pytz_timezone
-
+from config_utils import get_config
 from pymongo import MongoClient
 from bson import ObjectId
 from dotenv import load_dotenv
@@ -214,8 +214,61 @@ def create_response(data, status=200):
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'    
     return response
 
-@bp.route("/slots", methods=["GET", "OPTIONS"])
+def get_business_hours(config):
+    default_hours = {
+        "monday": ["09:00", "17:00"],
+        "tuesday": ["09:00", "17:00"],
+        "wednesday": ["09:00", "17:00"],
+        "thursday": ["09:00", "17:00"],
+        "friday": ["09:00", "17:00"]
+    }
+    return config.get("business_hours", default_hours)
+
+@bp.route("/slots", methods=["GET"])
 def get_slots():
+    company = request.args.get("company")
+    if not company:
+        return jsonify({"error": "Missing 'company' param"}), 400
+
+    try:
+        config = get_config(company)
+    except Exception as e:
+        logger.error(f"Failed to load config for {company}: {e}")
+        return jsonify({"error": "Failed to load business config"}), 500
+
+    # Use config-defined hours or fallback
+    business_hours = get_business_hours(config)
+    tz_local = pytz_timezone("America/Los_Angeles")
+    now = datetime.now(tz_local)
+    today = now.date()
+
+    days_ahead = 7
+    available_slots = []
+
+    for i in range(days_ahead):
+        day = today + timedelta(days=i)
+        weekday_name = day.strftime("%A").lower()
+
+        if weekday_name not in business_hours:
+            continue  # skip weekends or undefined days
+
+        open_str, close_str = business_hours[weekday_name]
+        open_time = datetime.strptime(open_str, "%H:%M").time()
+        close_time = datetime.strptime(close_str, "%H:%M").time()
+
+        current = tz_local.localize(datetime.combine(day, open_time))
+        end = tz_local.localize(datetime.combine(day, close_time))
+
+        while current < end:
+            if current > now:
+                available_slots.append(current.isoformat())
+            current += timedelta(minutes=30)
+
+    return jsonify({"slots": available_slots})
+
+
+@bp.route("/slotsOLD", methods=["GET", "OPTIONS"])
+def get_slotsOLD():
     if request.method == 'OPTIONS':
         response = make_response()
         response.status_code = 200
