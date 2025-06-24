@@ -1,4 +1,4 @@
-/* src/components/AppointmentBookingModal.css */
+/* AppointmentBookingModal.css */
 
 .modal-overlay {
   position: fixed;
@@ -13,8 +13,6 @@
   padding-top: 80px;
   z-index: 9999;
 
-  /* Reset host styles */
-  all: initial;
   font-family: Arial, sans-serif;
   box-sizing: border-box;
 }
@@ -28,17 +26,18 @@
 }
 
 .modal-content {
-  background: white;
-  padding: 24px;
-  border-radius: 10px;
+  background: #fff;
+  padding: 2rem;
+  border-radius: 12px;
   width: 90%;
   max-width: 600px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 0 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 60px rgba(0, 0, 0, 0.3);
   position: relative;
   z-index: 10000;
-  color: #000;
+  color: #333;
+  font-size: 16px;
 }
 
 .modal-close {
@@ -68,11 +67,18 @@
 .slot-selected {
   padding: 10px;
   border: 1px solid #ccc;
-  border-radius: 4px;
-  background: white;
+  border-radius: 6px;
+  background: #f9f9f9;
   cursor: pointer;
   text-align: center;
   color: #000;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+
+.slot:hover {
+  background: #e8f0ff;
 }
 
 .slot-selected {
@@ -85,15 +91,15 @@ form {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-top: 12px;
+  margin-top: 16px;
 }
 
 input,
 textarea {
-  padding: 8px;
+  padding: 10px;
   border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 14px;
+  border-radius: 6px;
+  font-size: 15px;
   width: 100%;
 }
 
@@ -107,7 +113,7 @@ button {
   background: #007bff;
   color: #fff;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 15px;
 }
