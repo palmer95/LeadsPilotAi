@@ -16,6 +16,7 @@ import logging
 import base64
 import json
 import jwt
+import googleapiclient.discovery
 
 
 load_dotenv()
@@ -193,9 +194,21 @@ def oauth_callback():
     }
 
     # Update the client document in MongoDB with the calendar tokens
+    # result = clients_collection.update_one(
+    #     {"_id": client['_id']},
+    #     {"$set": {"calendar_tokens": calendar_tokens, "calendar_id": creds.id_token}}
+    # )
+
+    service = build("calendar", "v3", credentials=creds)
+    calendar_list = service.calendarList().list().execute()
+    primary_calendar = next((c for c in calendar_list["items"] if c.get("primary")), None)
+    calendar_id = primary_calendar["id"] if primary_calendar else None
+
+
+    logger.info(f"creds.id_token: {getattr(creds, 'id_token', None)}")
     result = clients_collection.update_one(
         {"_id": client['_id']},
-        {"$set": {"calendar_tokens": calendar_tokens, "calendar_id": creds.id_token}}
+        {"$set": {"calendar_tokens": calendar_tokens, "calendar_id": calendar_id}}
     )
 
     if result.matched_count == 0:
