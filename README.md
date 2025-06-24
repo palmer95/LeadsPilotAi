@@ -2,7 +2,7 @@
 
 **The AI Sales Agent That Works While You Sleep**
 
-PromptlyAI is a fully branded, AI-powered chatbot that installs on any website and turns visitors into leads — and leads into bookings. Custom-built per client, it engages in real-time, answers customer questions, and books jobs automatically.
+LeadsPilotAI is a fully branded, AI-powered chatbot that installs on any website and turns visitors into leads — and leads into bookings. Custom-built per client, it engages in real-time, answers customer questions, and books jobs automatically.
 
 ---
 
