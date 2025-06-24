@@ -96,9 +96,10 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
           <button className="modal-close" onClick={() => onClose()}>
             ×
           </button>
-          <h2>Book Appointment</h2>
-          <h3>Select a Slot</h3>
-
+          <h2 style={{ marginBottom: "0.25em" }}>Book Appointment</h2>
+          <p style={{ marginTop: 0, fontSize: "16px", fontWeight: 500 }}>
+            Select a Slot
+          </p>
           {loading && <p>Loading slots...</p>}
           {error && <p className="modal-error">{error}</p>}
 
