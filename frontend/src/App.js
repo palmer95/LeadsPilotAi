@@ -179,14 +179,6 @@ export default function App({ company, configUrl }) {
           <>
             <div className="faq-divider">Options:</div>
             <div className="faq-buttons">
-              <button
-                onClick={handleBookClick}
-                className="faq-button"
-                disabled={loading}
-                aria-label="Book an appointment"
-              >
-                Book Appointment
-              </button>
               {config.faqs.map((q, idx) => (
                 <button
                   key={idx}
@@ -198,6 +190,14 @@ export default function App({ company, configUrl }) {
                   {q}
                 </button>
               ))}
+              <button
+                onClick={handleBookClick}
+                className="faq-button"
+                disabled={loading}
+                aria-label="Book an appointment"
+              >
+                Book a phone call
+              </button>
             </div>
           </>
         )}
