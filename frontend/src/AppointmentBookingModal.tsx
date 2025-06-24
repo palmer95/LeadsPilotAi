@@ -78,6 +78,9 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
       })
     : "";
 
+  const target =
+    document.getElementById("leads-pilot-chatbot-container") || document.body;
+
   return createPortal(
     success ? (
       <div className="modal-overlay">
@@ -149,7 +152,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
         </div>
       </div>
     ),
-    document.body
+    target
   );
 };
 
