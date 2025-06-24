@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import App from "./App";
+import ShadowWrapper from "./ShadowWrapper";
 import "./ChatWidget.css";
 
 export default function ChatWidget({ company, configUrl }) {
@@ -12,7 +13,9 @@ export default function ChatWidget({ company, configUrl }) {
     <div className="chat-widget-wrapper">
       {isOpen && (
         <div className="chat-widget-popup">
-          <App company={company} configUrl={configUrl} />
+          <ShadowWrapper>
+            <App company={company} configUrl={configUrl} />
+          </ShadowWrapper>
         </div>
       )}
       <button className="chat-bubble" onClick={toggleWidget}>

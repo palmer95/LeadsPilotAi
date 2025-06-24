@@ -1,0 +1,133 @@
+import React, { useRef, useEffect, useState } from "react";
+import ReactDOM from "react-dom";
+
+interface ShadowWrapperProps {
+  children: React.ReactNode;
+}
+
+const ShadowWrapper: React.FC<ShadowWrapperProps> = ({ children }) => {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [shadowRoot, setShadowRoot] = useState<ShadowRoot | null>(null);
+
+  useEffect(() => {
+    if (hostRef.current && !shadowRoot) {
+      const shadow = hostRef.current.attachShadow({ mode: "open" });
+
+      // Inject CSS inside the shadow root
+      const style = document.createElement("style");
+      style.textContent = `/* AppointmentBookingModal.css */
+
+/* Emergency override to ensure modal is on top */
+.modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.7) !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  z-index: 2147483647 !important;
+}
+
+.modal-content {
+  background: white !important;
+  padding: 20px !important;
+  border-radius: 8px !important;
+  width: 90% !important;
+  max-width: 600px !important;
+  max-height: 80vh !important;
+  overflow-y: auto !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1) !important;
+  position: relative !important;
+  z-index: 2147483647 !important;
+}
+
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: none;
+  background: none;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.modal-error {
+  color: red;
+  margin: 10px 0;
+}
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.slot,
+.slot-selected {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  text-align: center;
+  color: #000;
+  text-indent: 0;
+  overflow: visible;
+  min-height: 48px;
+  font-size: 16px;
+}
+
+.slot-selected {
+  background: #007bff;
+  color: white;
+  border-color: #0056b3;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 1em;
+}
+
+input,
+textarea {
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  padding: 12px;
+  font-size: 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+`;
+      shadow.appendChild(style);
+
+      setShadowRoot(shadow);
+    }
+  }, [shadowRoot]);
+
+  return (
+    <div ref={hostRef}>
+      {shadowRoot && ReactDOM.createPortal(children, shadowRoot)}
+    </div>
+  );
+};
+
+export default ShadowWrapper;

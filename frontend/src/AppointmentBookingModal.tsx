@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { createPortal } from "react-dom";
 import "./AppointmentBookingModal.css";
+import ShadowWrapper from "./ShadowWrapper";
 
 interface AppointmentBookingModalProps {
   onClose: (status?: string) => void;
@@ -82,76 +83,80 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
     document.getElementById("leads-pilot-chatbot-container") || document.body;
 
   return createPortal(
-    success ? (
-      <div className="modal-overlay">
-        <div className="modal-content">
-          <h2>✅ Appointment Booked!</h2>
-          {dateStr && (
-            <p style={{ fontWeight: "bold", marginTop: "0.5em" }}>{dateStr}</p>
-          )}
-          <p>You’ll receive a confirmation email shortly.</p>
-          <button onClick={() => onClose("success")}>Close</button>
+    <ShadowWrapper>
+      {success ? (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2>✅ Appointment Booked!</h2>
+            {dateStr && (
+              <p style={{ fontWeight: "bold", marginTop: "0.5em" }}>
+                {dateStr}
+              </p>
+            )}
+            <p>You’ll receive a confirmation email shortly.</p>
+            <button onClick={() => onClose("success")}>Close</button>
+          </div>
         </div>
-      </div>
-    ) : (
-      <div className="modal-overlay">
-        <div className="modal-content">
-          <button className="modal-close" onClick={() => onClose()}>
-            ×
-          </button>
-          <h2 style={{ marginBottom: "0.25em" }}>Book Appointment</h2>
-          <p style={{ marginTop: 0, fontSize: "16px", fontWeight: 500 }}>
-            Select a Slot
-          </p>
-          {loading && <p>Loading slots...</p>}
-          {error && <p className="modal-error">{error}</p>}
-
-          {!loading && !error && (
-            <div className="slot-grid">
-              {slots.map((slot, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelectedSlot(slot)}
-                  className={selectedSlot === slot ? "slot-selected" : "slot"}
-                >
-                  {new Date(slot).toLocaleString("en-US", {
-                    weekday: "short",
-                    hour: "numeric",
-                    minute: "2-digit",
-                    hour12: true,
-                  })}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <form onSubmit={handleBook}>
-            <input
-              type="text"
-              placeholder="Your Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-            <input
-              type="email"
-              placeholder="Your Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <textarea
-              placeholder="Notes (optional)"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-            <button type="submit" disabled={loading || !selectedSlot}>
-              {loading ? "Booking..." : "Book Now"}
+      ) : (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <button className="modal-close" onClick={() => onClose()}>
+              ×
             </button>
-          </form>
+            <h2 style={{ marginBottom: "0.25em" }}>Book Appointment</h2>
+            <p style={{ marginTop: 0, fontSize: "16px", fontWeight: 500 }}>
+              Select a Slot
+            </p>
+            {loading && <p>Loading slots...</p>}
+            {error && <p className="modal-error">{error}</p>}
+
+            {!loading && !error && (
+              <div className="slot-grid">
+                {slots.map((slot, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedSlot(slot)}
+                    className={selectedSlot === slot ? "slot-selected" : "slot"}
+                  >
+                    {new Date(slot).toLocaleString("en-US", {
+                      weekday: "short",
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
+                    })}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <form onSubmit={handleBook}>
+              <input
+                type="text"
+                placeholder="Your Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+              <input
+                type="email"
+                placeholder="Your Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <textarea
+                placeholder="Notes (optional)"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+              <button type="submit" disabled={loading || !selectedSlot}>
+                {loading ? "Booking..." : "Book Now"}
+              </button>
+            </form>
+          </div>
         </div>
-      </div>
-    ),
+      )}
+    </ShadowWrapper>,
     target
   );
 };
