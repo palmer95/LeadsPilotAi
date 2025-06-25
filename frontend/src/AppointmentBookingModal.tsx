@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { createPortal } from "react-dom";
+import FullCalendar from "@fullcalendar/react";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import interactionPlugin from "@fullcalendar/interaction";
 import "./AppointmentBookingModal.css";
 import ShadowWrapper from "./ShadowWrapper";
 
@@ -15,7 +18,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
   onClose,
   company,
 }) => {
-  const [calendar, setCalendar] = useState<{ [date: string]: string[] }>({});
+  const [events, setEvents] = useState<any[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [bookedSlot, setBookedSlot] = useState<string | null>(null);
   const [name, setName] = useState<string>("");
@@ -26,8 +29,8 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
   const [success, setSuccess] = useState<boolean>(false);
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
     const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 (Sun) to 6 (Sat)
-    const diffToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek; // Adjust to Sunday
+    const dayOfWeek = now.getDay();
+    const diffToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
     return new Date(now.setDate(now.getDate() + diffToSunday));
   });
 
@@ -41,7 +44,21 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
         }>(
           `${API_BASE_URL}/api/admin/calendar/week?company=${company}&startDate=${startOfWeek}`
         );
-        setCalendar(res.data.calendar || {});
+        const calendarData = res.data.calendar || {};
+        const eventsData = Object.entries(calendarData).flatMap(
+          ([date, slots]) =>
+            slots.map((slot) => ({
+              title: new Date(slot).toLocaleTimeString("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              }),
+              start: new Date(slot),
+              allDay: false,
+              extendedProps: { slot: slot },
+            }))
+        );
+        setEvents(eventsData);
       } catch (err) {
         setError("Failed to load calendar. Please try again.");
         console.error("Calendar fetch error:", err);
@@ -63,6 +80,10 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
       newWeekStart.setDate(prev.getDate() + (direction === "next" ? 7 : -7));
       return newWeekStart >= currentSunday ? newWeekStart : prev;
     });
+  };
+
+  const handleSelectSlot = (info: any) => {
+    setSelectedSlot(info.event ? info.event.extendedProps.slot : info.startStr);
   };
 
   const handleBook = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -102,21 +123,6 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
 
   const target =
     document.getElementById("leads-pilot-chatbot-container") || document.body;
-
-  const daysOfWeek = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ];
-  const weekDates = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(currentWeekStart);
-    date.setDate(currentWeekStart.getDate() + i);
-    return date.toISOString().split("T")[0];
-  });
 
   return createPortal(
     <ShadowWrapper>
@@ -181,50 +187,34 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                     Next Week
                   </button>
                 </div>
-                <div className="calendar-table-wrapper">
-                  <table className="calendar-table">
-                    <thead>
-                      <tr>
-                        {daysOfWeek.map((day) => (
-                          <th key={day}>{day}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Object.entries(calendar).flatMap(([date, slots]) =>
-                        slots.map((slot, index) => (
-                          <tr key={`${date}-${index}`}>
-                            {weekDates.map((dayDate) => {
-                              if (dayDate === date) {
-                                return (
-                                  <td key={dayDate}>
-                                    <button
-                                      className={
-                                        selectedSlot === slot
-                                          ? "slot-selected"
-                                          : "slot"
-                                      }
-                                      onClick={() => setSelectedSlot(slot)}
-                                    >
-                                      {new Date(slot).toLocaleTimeString(
-                                        "en-US",
-                                        {
-                                          hour: "numeric",
-                                          minute: "2-digit",
-                                          hour12: true,
-                                        }
-                                      )}
-                                    </button>
-                                  </td>
-                                );
-                              }
-                              return <td key={dayDate}></td>;
-                            })}
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                <div className="calendar-wrapper">
+                  <FullCalendar
+                    plugins={[timeGridPlugin, interactionPlugin]}
+                    initialView="timeGridWeek"
+                    events={events}
+                    selectable={true}
+                    selectMirror={true}
+                    dayMinWidth={100} // Ensure readable columns
+                    slotMinTime="09:00:00" // Start at 9 AM
+                    slotMaxTime="17:00:00" // End at 5 PM
+                    allDaySlot={false} // Disable all-day slot
+                    height="auto"
+                    contentHeight="400px"
+                    eventClick={handleSelectSlot}
+                    datesSet={(dateInfo) => {
+                      const start = new Date(dateInfo.start);
+                      start.setHours(0, 0, 0, 0);
+                      if (start > currentWeekStart) setCurrentWeekStart(start);
+                    }}
+                    customButtons={{
+                      prev: {
+                        text: "Previous",
+                        click: () => navigateWeek("prev"),
+                      },
+                      next: { text: "Next", click: () => navigateWeek("next") },
+                    }}
+                    headerToolbar={false} // Use custom nav
+                  />
                 </div>
               </div>
             )}
