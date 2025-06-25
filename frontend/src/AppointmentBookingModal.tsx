@@ -191,41 +191,38 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                       </tr>
                     </thead>
                     <tbody>
-                      {Array.from({ length: 24 }, (_, hour) => (
-                        <tr key={hour}>
-                          {weekDates.map((date) => {
-                            const slots = calendar[date] || [];
-                            const slotTime = slots.find(
-                              (slot) =>
-                                new Date(slot).getHours() === hour &&
-                                new Date(slot).getMinutes() === 0
-                            );
-                            return (
-                              <td key={date}>
-                                {slotTime && (
-                                  <button
-                                    className={
-                                      selectedSlot === slotTime
-                                        ? "slot-selected"
-                                        : "slot"
-                                    }
-                                    onClick={() => setSelectedSlot(slotTime)}
-                                  >
-                                    {new Date(slotTime).toLocaleTimeString(
-                                      "en-US",
-                                      {
-                                        hour: "numeric",
-                                        minute: "2-digit",
-                                        hour12: true,
+                      {Object.entries(calendar).flatMap(([date, slots]) =>
+                        slots.map((slot, index) => (
+                          <tr key={`${date}-${index}`}>
+                            {weekDates.map((dayDate) => {
+                              if (dayDate === date) {
+                                return (
+                                  <td key={dayDate}>
+                                    <button
+                                      className={
+                                        selectedSlot === slot
+                                          ? "slot-selected"
+                                          : "slot"
                                       }
-                                    )}
-                                  </button>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
+                                      onClick={() => setSelectedSlot(slot)}
+                                    >
+                                      {new Date(slot).toLocaleTimeString(
+                                        "en-US",
+                                        {
+                                          hour: "numeric",
+                                          minute: "2-digit",
+                                          hour12: true,
+                                        }
+                                      )}
+                                    </button>
+                                  </td>
+                                );
+                              }
+                              return <td key={dayDate}></td>;
+                            })}
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>

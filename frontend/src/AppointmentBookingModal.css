@@ -108,6 +108,7 @@
   text-align: center;
   border: 1px solid #dee2e6;
   min-width: 100px; /* Ensure columns are wide enough */
+  vertical-align: top; /* Align slots to top */
 }
 
 .slot,
