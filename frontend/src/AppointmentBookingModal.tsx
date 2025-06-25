@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
+import scrollgridPlugin from "@fullcalendar/scrollgrid"; // Added missing plugin
 import "./AppointmentBookingModal.css";
 import ShadowWrapper from "./ShadowWrapper";
 
@@ -23,6 +24,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
   const [bookedSlot, setBookedSlot] = useState<string | null>(null);
   const [name, setName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +90,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
 
   const handleBook = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!selectedSlot || !name || !email) {
+    if (!selectedSlot || !name || !email || !phone) {
       setError("Please select a slot and fill out all fields.");
       return;
     }
@@ -98,6 +100,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
         slot: selectedSlot,
         name,
         email,
+        phone,
         notes,
         company,
       });
@@ -189,7 +192,11 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                 </div>
                 <div className="calendar-wrapper">
                   <FullCalendar
-                    plugins={[timeGridPlugin, interactionPlugin]}
+                    plugins={[
+                      timeGridPlugin,
+                      interactionPlugin,
+                      scrollgridPlugin,
+                    ]} // Added scrollgridPlugin
                     initialView="timeGridWeek"
                     events={events}
                     selectable={true}
@@ -232,6 +239,13 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                 placeholder="Your Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <input
+                type="tel"
+                placeholder="Your Phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
                 required
               />
               <textarea
