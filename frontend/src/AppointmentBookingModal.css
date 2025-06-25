@@ -86,39 +86,23 @@
 }
 
 .calendar-table-wrapper {
-  overflow-x: auto;
-}
-
-.calendar-table {
-  display: flex;
-  flex-direction: column;
-}
-
-.day-headers {
-  display: flex;
-  justify-content: space-between;
-  border-bottom: 2px solid #dee2e6;
-  padding-bottom: 5px;
-  margin-bottom: 10px;
-}
-
-.day-header-cell {
-  flex: 1;
-  text-align: center;
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-  min-width: 120px;
+  overflow-x: auto; /* Ensure horizontal scroll if needed */
 }
 
 .day-slots {
   display: flex;
   justify-content: space-between;
+  flex-wrap: nowrap; /* Prevent vertical stacking */
+}
+
+.slot-grid {
+  display: flex;
+  width: 100%;
 }
 
 .day-column {
   flex: 1;
-  min-width: 120px;
+  min-width: 120px; /* Adjust if headers wrap */
   padding: 10px;
   text-align: center;
   border: 1px solid #dee2e6;

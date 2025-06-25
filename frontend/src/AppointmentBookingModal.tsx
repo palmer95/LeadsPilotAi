@@ -200,17 +200,14 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                       ))}
                     </div>
                     <div className="day-slots">
-                      {weekDates.map((date) => {
-                        const slots = calendar[date] || [];
-                        const displaySlots = showAllSlots[date]
-                          ? slots
-                          : slots.slice(0, 5);
-                        return (
+                      <div className="slot-grid">
+                        {weekDates.map((date) => (
                           <div key={date} className="day-column">
-                            {displaySlots.length === 0 ? (
-                              <p className="no-slots">No available slots</p>
-                            ) : (
-                              displaySlots.map((slot) => (
+                            {calendar[date] && calendar[date].length > 0 ? (
+                              (showAllSlots[date]
+                                ? calendar[date]
+                                : calendar[date].slice(0, 5)
+                              ).map((slot) => (
                                 <button
                                   key={slot}
                                   className={
@@ -227,8 +224,10 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                                   })}
                                 </button>
                               ))
+                            ) : (
+                              <p className="no-slots">No available slots</p>
                             )}
-                            {slots.length > 5 && (
+                            {calendar[date] && calendar[date].length > 5 && (
                               <button
                                 className="view-more"
                                 onClick={() => toggleShowAll(date)}
@@ -243,8 +242,8 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                               </button>
                             )}
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
