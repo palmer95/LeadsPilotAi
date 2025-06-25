@@ -237,7 +237,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                                   margin: showAllSlots[date]
                                     ? "10px auto 0"
                                     : "10px auto",
-                                }} // Centered by default
+                                }} // Centered
                               >
                                 {showAllSlots[date] ? "View Less" : "View More"}
                               </button>

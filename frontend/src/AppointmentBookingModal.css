@@ -19,7 +19,7 @@
   padding: 20px !important;
   border-radius: 8px !important;
   width: 90% !important;
-  max-width: 1000px !important; /* Wider for table */
+  max-width: 1000px !important; /* Wider for horizontal headers */
   max-height: 80vh !important;
   overflow-y: auto !important;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1) !important;
