@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { createPortal } from "react-dom";
-import { Calendar, momentLocalizer } from "react-big-calendar";
-import moment from "moment";
 import "./AppointmentBookingModal.css";
 import ShadowWrapper from "./ShadowWrapper";
 
@@ -12,13 +10,12 @@ interface AppointmentBookingModalProps {
 }
 
 const API_BASE_URL = "https://leadspilotai.onrender.com";
-const localizer = momentLocalizer(moment);
 
 const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
   onClose,
   company,
 }) => {
-  const [events, setEvents] = useState<any[]>([]);
+  const [calendar, setCalendar] = useState<{ [date: string]: string[] }>({});
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [bookedSlot, setBookedSlot] = useState<string | null>(null);
   const [name, setName] = useState<string>("");
@@ -44,22 +41,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
         }>(
           `${API_BASE_URL}/api/admin/calendar/week?company=${company}&startDate=${startOfWeek}`
         );
-        const calendarData = res.data.calendar || {};
-        const eventsData = Object.entries(calendarData).flatMap(
-          ([date, slots]) =>
-            slots.map((slot) => ({
-              title: new Date(slot).toLocaleTimeString("en-US", {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              }),
-              start: new Date(slot),
-              end: new Date(new Date(slot).getTime() + 30 * 60 * 1000), // 30-minute slots
-              allDay: false,
-              resource: { slot: slot },
-            }))
-        );
-        setEvents(eventsData);
+        setCalendar(res.data.calendar || {});
       } catch (err) {
         setError("Failed to load calendar. Please try again.");
         console.error("Calendar fetch error:", err);
@@ -81,10 +63,6 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
       newWeekStart.setDate(prev.getDate() + (direction === "next" ? 7 : -7));
       return newWeekStart >= currentSunday ? newWeekStart : prev;
     });
-  };
-
-  const handleSelectEvent = (event: any) => {
-    setSelectedSlot(event.resource.slot);
   };
 
   const handleBook = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -124,6 +102,21 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
 
   const target =
     document.getElementById("leads-pilot-chatbot-container") || document.body;
+
+  const daysOfWeek = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  const weekDates = Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(currentWeekStart);
+    date.setDate(currentWeekStart.getDate() + i);
+    return date.toISOString().split("T")[0];
+  });
 
   return createPortal(
     <ShadowWrapper>
@@ -188,41 +181,53 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                     Next Week
                   </button>
                 </div>
-                <div className="calendar-wrapper">
-                  <Calendar
-                    localizer={localizer}
-                    events={events}
-                    startAccessor="start"
-                    endAccessor="end"
-                    style={{ height: 400 }}
-                    views={["week"]}
-                    defaultView="week"
-                    onSelectEvent={handleSelectEvent}
-                    components={{
-                      event: ({ event }) => (
-                        <span
-                          style={{
-                            padding: "5px",
-                            background: "#007bff",
-                            color: "white",
-                            borderRadius: "4px",
-                          }}
-                        >
-                          {event.title}
-                        </span>
-                      ),
-                      toolbar: (props) => (
-                        <div style={{ display: "none" }} /> // Hide default toolbar, use custom nav
-                      ),
-                    }}
-                    dayLayoutAlgorithm="no-overlap" // Prevent slot overlap
-                    min={new Date(2025, 5, 25, 0, 0, 0)} // June 25, 2025, 12:00 AM PDT
-                    max={new Date(2025, 5, 25, 23, 59, 59)} // June 25, 2025, 11:59 PM PDT (adjust dynamically)
-                    formats={{
-                      dayFormat: (date, culture, localizer) =>
-                        localizer.format(date, "ddd", culture), // Show "Sun", "Mon", etc.
-                    }}
-                  />
+                <div className="calendar-table-wrapper">
+                  <table className="calendar-table">
+                    <thead>
+                      <tr>
+                        {daysOfWeek.map((day) => (
+                          <th key={day}>{day}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.from({ length: 24 }, (_, hour) => (
+                        <tr key={hour}>
+                          {weekDates.map((date) => {
+                            const slots = calendar[date] || [];
+                            const slotTime = slots.find(
+                              (slot) =>
+                                new Date(slot).getHours() === hour &&
+                                new Date(slot).getMinutes() === 0
+                            );
+                            return (
+                              <td key={date}>
+                                {slotTime && (
+                                  <button
+                                    className={
+                                      selectedSlot === slotTime
+                                        ? "slot-selected"
+                                        : "slot"
+                                    }
+                                    onClick={() => setSelectedSlot(slotTime)}
+                                  >
+                                    {new Date(slotTime).toLocaleTimeString(
+                                      "en-US",
+                                      {
+                                        hour: "numeric",
+                                        minute: "2-digit",
+                                        hour12: true,
+                                      }
+                                    )}
+                                  </button>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
