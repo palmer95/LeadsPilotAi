@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { createPortal } from "react-dom";
+import { Calendar, momentLocalizer } from "react-big-calendar";
+import moment from "moment";
 import "./AppointmentBookingModal.css";
 import ShadowWrapper from "./ShadowWrapper";
 
@@ -10,12 +12,13 @@ interface AppointmentBookingModalProps {
 }
 
 const API_BASE_URL = "https://leadspilotai.onrender.com";
+const localizer = momentLocalizer(moment);
 
 const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
   onClose,
   company,
 }) => {
-  const [calendar, setCalendar] = useState<{ [date: string]: string[] }>({});
+  const [events, setEvents] = useState<any[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [bookedSlot, setBookedSlot] = useState<string | null>(null);
   const [name, setName] = useState<string>("");
@@ -26,8 +29,8 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
   const [success, setSuccess] = useState<boolean>(false);
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
     const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 (Sun) to 6 (Sat)
-    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Adjust to Monday
+    const dayOfWeek = now.getDay();
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     return new Date(now.setDate(now.getDate() + diffToMonday));
   });
 
@@ -41,8 +44,22 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
         }>(
           `${API_BASE_URL}/api/admin/calendar/week?company=${company}&startDate=${startOfWeek}`
         );
-        setCalendar(res.data.calendar || {});
-        setCurrentWeekStart(new Date(res.data.startDate)); // Sync with API response
+        const calendarData = res.data.calendar || {};
+        const eventsData = Object.entries(calendarData).flatMap(
+          ([date, slots]) =>
+            slots.map((slot) => ({
+              title: new Date(slot).toLocaleTimeString("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              }),
+              start: new Date(slot),
+              end: new Date(new Date(slot).getTime() + 30 * 60 * 1000), // 30-minute slots
+              allDay: false,
+              resource: { slot: slot },
+            }))
+        );
+        setEvents(eventsData);
       } catch (err) {
         setError("Failed to load calendar. Please try again.");
         console.error("Calendar fetch error:", err);
@@ -64,8 +81,12 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
       );
       const newWeekStart = new Date(prev);
       newWeekStart.setDate(prev.getDate() + (direction === "next" ? 7 : -7));
-      return newWeekStart >= currentMonday ? newWeekStart : prev; // Prevent past weeks
+      return newWeekStart >= currentMonday ? newWeekStart : prev;
     });
+  };
+
+  const handleSelectEvent = (event: any) => {
+    setSelectedSlot(event.resource.slot);
   };
 
   const handleBook = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -169,41 +190,24 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                     Next Week
                   </button>
                 </div>
-                <div className="calendar-grid">
-                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
-                    (day, index) => {
-                      const date = new Date(currentWeekStart);
-                      date.setDate(currentWeekStart.getDate() + index);
-                      const dateStr = date.toISOString().split("T")[0];
-                      const daySlots = calendar[dateStr] || [];
-                      return (
-                        <div key={day} className="calendar-day">
-                          <h3>{day}</h3>
-                          {daySlots.length ? (
-                            daySlots.map((slot, i) => (
-                              <button
-                                key={i}
-                                onClick={() => setSelectedSlot(slot)}
-                                className={
-                                  selectedSlot === slot
-                                    ? "slot-selected"
-                                    : "slot"
-                                }
-                              >
-                                {new Date(slot).toLocaleTimeString("en-US", {
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                  hour12: true,
-                                })}
-                              </button>
-                            ))
-                          ) : (
-                            <p>No available slots</p>
-                          )}
-                        </div>
-                      );
-                    }
-                  )}
+                <div className="calendar-wrapper">
+                  <Calendar
+                    localizer={localizer}
+                    events={events}
+                    startAccessor="start"
+                    endAccessor="end"
+                    style={{ height: 400 }}
+                    views={["week"]}
+                    defaultView="week"
+                    onSelectEvent={handleSelectEvent}
+                    components={{
+                      event: ({ event }) => (
+                        <span style={{ cursor: "pointer" }}>{event.title}</span>
+                      ),
+                    }}
+                    min={new Date(2025, 5, 24, 0, 0, 0)} // June 24, 2025, 12:00 AM PDT
+                    max={new Date(2025, 5, 24, 23, 59, 59)} // June 24, 2025, 11:59 PM PDT (adjust dynamically later)
+                  />
                 </div>
               </div>
             )}

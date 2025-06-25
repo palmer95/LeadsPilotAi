@@ -35,8 +35,8 @@
   background: none;
   font-size: 24px;
   cursor: pointer;
-  color: #ff0000 !important; /* Bright red to ensure visibility */
-  text-shadow: 0 0 2px #000000; /* Add shadow for contrast */
+  color: #ff0000 !important; /* Bright red for visibility */
+  text-shadow: 0 0 2px #000000; /* Shadow for contrast */
 }
 
 .modal-error {
@@ -44,11 +44,12 @@
   margin: 10px 0;
 }
 
-/* Remove or adapt slot-grid for calendar-grid */
+/* Deprecated slot-grid (remove if not used elsewhere) */
 .slot-grid {
-  display: none; /* Deprecated, can be removed if no longer used elsewhere */
+  display: none;
 }
 
+/* Calendar container and navigation */
 .calendar-container {
   margin: 10px 0;
 }
@@ -80,62 +81,11 @@
   font-weight: 500;
 }
 
-.calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 5px; /* Tighter spacing */
-  background: #f8f9fa; /* Light background for calendar feel */
-  padding: 5px;
-  border-radius: 4px;
+.calendar-wrapper {
+  margin: 0 -20px; /* Offset padding to fit React-Big-Calendar */
 }
 
-.calendar-day {
-  border: 1px solid #dee2e6; /* Subtle border */
-  padding: 10px;
-  text-align: center;
-  min-height: 120px; /* Taller for better slot visibility */
-  background: white; /* White day boxes */
-  border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-}
-
-.calendar-day h3 {
-  margin: 0 0 5px;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.calendar-day p {
-  margin: 5px 0;
-  font-size: 14px;
-  color: #666;
-}
-
-.slot,
-.slot-selected {
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background: white;
-  cursor: pointer;
-  text-align: center;
-  color: #000;
-  text-indent: 0;
-  overflow: visible;
-  min-height: 48px;
-  font-size: 16px;
-  width: 100%; /* Ensure slots fill the day container */
-  margin: 2px 0; /* Small spacing between slots */
-}
-
-.slot-selected {
-  background: #007bff;
-  color: white;
-  border-color: #0056b3;
-}
-
+/* Form and input styles */
 form {
   display: flex;
   flex-direction: column;
