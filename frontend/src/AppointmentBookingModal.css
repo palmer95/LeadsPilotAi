@@ -35,6 +35,7 @@
   background: none;
   font-size: 24px;
   cursor: pointer;
+  color: #000000; /* Explicitly set to black for visibility */
 }
 
 .modal-error {
@@ -42,11 +43,65 @@
   margin: 10px 0;
 }
 
+/* Remove or adapt slot-grid for calendar-grid */
 .slot-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 10px;
+  display: none; /* Deprecated, can be removed if no longer used elsewhere */
+}
+
+.calendar-container {
   margin: 10px 0;
+}
+
+.calendar-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.calendar-nav button {
+  padding: 10px;
+  font-size: 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.calendar-nav button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.calendar-nav span {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr); /* 7 days (Sun-Sat) */
+  gap: 10px;
+}
+
+.calendar-day {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: center;
+  min-height: 100px; /* Consistent height for days */
+}
+
+.calendar-day h3 {
+  margin: 0 0 5px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.calendar-day p {
+  margin: 5px 0;
+  font-size: 14px;
+  color: #666;
 }
 
 .slot,
@@ -62,6 +117,8 @@
   overflow: visible;
   min-height: 48px;
   font-size: 16px;
+  width: 100%; /* Ensure slots fill the day container */
+  margin: 2px 0; /* Small spacing between slots */
 }
 
 .slot-selected {

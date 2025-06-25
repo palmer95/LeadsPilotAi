@@ -15,7 +15,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
   onClose,
   company,
 }) => {
-  const [slots, setSlots] = useState<string[]>([]);
+  const [calendar, setCalendar] = useState<{ [date: string]: string[] }>({});
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [bookedSlot, setBookedSlot] = useState<string | null>(null);
   const [name, setName] = useState<string>("");
@@ -24,25 +24,49 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 (Sun) to 6 (Sat)
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Adjust to Monday
+    return new Date(now.setDate(now.getDate() + diffToMonday));
+  });
 
   useEffect(() => {
-    const fetchSlots = async () => {
+    const fetchCalendar = async () => {
       try {
-        const res = await axios.get<{ slots: string[] }>(
-          `${API_BASE_URL}/api/admin/calendar/slots?company=${company}`
+        const startOfWeek = currentWeekStart.toISOString().split("T")[0];
+        const res = await axios.get<{
+          calendar: { [date: string]: string[] };
+          startDate: string;
+        }>(
+          `${API_BASE_URL}/api/admin/calendar/week?company=${company}&startDate=${startOfWeek}`
         );
-        const fetchedSlots = res.data.slots || [];
-        setSlots(fetchedSlots.slice(0, 12));
+        setCalendar(res.data.calendar || {});
+        setCurrentWeekStart(new Date(res.data.startDate)); // Sync with API response
       } catch (err) {
-        setError("Failed to load slots. Please try again.");
-        console.error("Slot fetch error:", err);
+        setError("Failed to load calendar. Please try again.");
+        console.error("Calendar fetch error:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSlots();
-  }, [company]);
+    fetchCalendar();
+  }, [company, currentWeekStart]);
+
+  const navigateWeek = (direction: "prev" | "next") => {
+    setCurrentWeekStart((prev) => {
+      const now = new Date();
+      const currentMonday = new Date(
+        now.setDate(
+          now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)
+        )
+      );
+      const newWeekStart = new Date(prev);
+      newWeekStart.setDate(prev.getDate() + (direction === "next" ? 7 : -7));
+      return newWeekStart >= currentMonday ? newWeekStart : prev; // Prevent past weeks
+    });
+  };
 
   const handleBook = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -107,25 +131,80 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
             <p style={{ marginTop: 0, fontSize: "16px", fontWeight: 500 }}>
               Select a Slot
             </p>
-            {loading && <p>Loading slots...</p>}
+            {loading && <p>Loading calendar...</p>}
             {error && <p className="modal-error">{error}</p>}
 
             {!loading && !error && (
-              <div className="slot-grid">
-                {slots.map((slot, index) => (
+              <div className="calendar-container">
+                <div className="calendar-nav">
                   <button
-                    key={index}
-                    onClick={() => setSelectedSlot(slot)}
-                    className={selectedSlot === slot ? "slot-selected" : "slot"}
+                    onClick={() => navigateWeek("prev")}
+                    disabled={
+                      currentWeekStart <=
+                      new Date(
+                        new Date().setDate(
+                          new Date().getDate() -
+                            new Date().getDay() +
+                            (new Date().getDay() === 0 ? -6 : 1)
+                        )
+                      )
+                    }
                   >
-                    {new Date(slot).toLocaleString("en-US", {
-                      weekday: "short",
-                      hour: "numeric",
-                      minute: "2-digit",
-                      hour12: true,
-                    })}
+                    Previous Week
                   </button>
-                ))}
+                  <span>
+                    {currentWeekStart.toLocaleDateString("en-US", {
+                      month: "long",
+                      day: "numeric",
+                    })}{" "}
+                    -{" "}
+                    {new Date(
+                      currentWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000
+                    ).toLocaleDateString("en-US", {
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </span>
+                  <button onClick={() => navigateWeek("next")}>
+                    Next Week
+                  </button>
+                </div>
+                <div className="calendar-grid">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
+                    (day, index) => {
+                      const date = new Date(currentWeekStart);
+                      date.setDate(currentWeekStart.getDate() + index);
+                      const dateStr = date.toISOString().split("T")[0];
+                      const daySlots = calendar[dateStr] || [];
+                      return (
+                        <div key={day} className="calendar-day">
+                          <h3>{day}</h3>
+                          {daySlots.length ? (
+                            daySlots.map((slot, i) => (
+                              <button
+                                key={i}
+                                onClick={() => setSelectedSlot(slot)}
+                                className={
+                                  selectedSlot === slot
+                                    ? "slot-selected"
+                                    : "slot"
+                                }
+                              >
+                                {new Date(slot).toLocaleTimeString("en-US", {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                  hour12: true,
+                                })}
+                              </button>
+                            ))
+                          ) : (
+                            <p>No available slots</p>
+                          )}
+                        </div>
+                      );
+                    }
+                  )}
+                </div>
               </div>
             )}
 

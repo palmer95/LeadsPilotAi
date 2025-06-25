@@ -63,7 +63,8 @@ export default function App({ company, configUrl }) {
         setShowBookingModal(true);
         setMessages((m) => {
           const last = m[m.length - 1];
-          last.bot = "Opening appointment booking...";
+          last.bot =
+            "I have opened our booking system to the left once you select a time confirmation emails will be sent to you and our team. Then you can return talking to me regularly. 😄";
           return [...m.slice(0, -1), last];
         });
         setLoading(false);
