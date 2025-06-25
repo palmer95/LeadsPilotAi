@@ -279,7 +279,6 @@ def get_slots():
 
     return jsonify({"slots": available_slots})
 
-
 @bp.route("/slotsOLD", methods=["GET", "OPTIONS"])
 def get_slotsOLD():
     if request.method == 'OPTIONS':
@@ -344,6 +343,60 @@ def get_slotsOLD():
             slots.append(current.isoformat())
         current = slot_end
     return create_response({"slots": slots[:20]})
+
+@bp.route("/calendar/week", methods=["GET"])
+def get_week_calendar():
+    company = request.args.get("company")
+    start_date_str = request.args.get("startDate")  # ISO date (e.g., "2025-06-24")
+
+    if not company:
+        return jsonify({"error": "Missing 'company' param"}), 400
+
+    try:
+        config = get_config(company)
+    except Exception as e:
+        logger.error(f"Failed to load config for {company}: {e}")
+        return jsonify({"error": "Failed to load business config"}), 500
+
+    business_hours = get_business_hours(config)
+    tz_local = pytz_timezone("America/Los_Angeles")
+    now = datetime.now(tz_local)
+    today = now.date()
+
+    # Validate and set start date (default to current week if not provided or past)
+    if not start_date_str:
+        start_date = today - timedelta(days=today.weekday())  # Start of current week (Monday)
+    else:
+        start_date = datetime.fromisoformat(start_date_str).date()
+        if start_date < today - timedelta(days=today.weekday()):  # Prevent past weeks
+            start_date = today - timedelta(days=today.weekday())
+
+    available_slots = {}
+
+    for i in range(7):  # One week (7 days)
+        day = start_date + timedelta(days=i)
+        weekday_name = day.strftime("%A").lower()
+
+        if weekday_name not in business_hours:
+            continue  # Skip weekends or undefined days
+
+        open_str, close_str = business_hours[weekday_name]
+        open_time = datetime.strptime(open_str, "%H:%M").time()
+        close_time = datetime.strptime(close_str, "%H:%M").time()
+
+        current = tz_local.localize(datetime.combine(day, open_time))
+        end = tz_local.localize(datetime.combine(day, close_time))
+        day_slots = []
+
+        while current < end:
+            if current > now:
+                day_slots.append(current.isoformat())
+            current += timedelta(minutes=30)
+
+        if day_slots:  # Only include days with slots
+            available_slots[day.isoformat()] = day_slots
+
+    return jsonify({"calendar": available_slots, "startDate": start_date.isoformat()})
 
 @bp.route("/book", methods=["POST", "OPTIONS"])
 def book_appointment():
@@ -428,7 +481,7 @@ def book_appointment():
         end_local = start.astimezone(pacific)
         # Book the event
         event = {
-            'summary': f'Appointment with {name}',
+            'summary': f'Phone call with {name}',
             'description': f'Email: {email}\nNotes: {notes}',
             'start': {
                 'dateTime': start_local.isoformat(),
