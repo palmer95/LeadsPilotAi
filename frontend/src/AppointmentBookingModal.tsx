@@ -116,7 +116,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
     "Friday",
     "Saturday",
     "Sunday",
-  ]; // Reordered
+  ]; // Monday first, Sunday last
   const weekDates = Array.from({ length: 7 }, (_, i) => {
     const date = new Date(currentWeekStart);
     date.setDate(currentWeekStart.getDate() + i);
