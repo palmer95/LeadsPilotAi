@@ -29,9 +29,9 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
   const [success, setSuccess] = useState<boolean>(false);
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
     const now = new Date();
-    const dayOfWeek = now.getDay();
-    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    return new Date(now.setDate(now.getDate() + diffToMonday));
+    const dayOfWeek = now.getDay(); // 0 (Sun) to 6 (Sat)
+    const diffToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek; // Adjust to Sunday
+    return new Date(now.setDate(now.getDate() + diffToSunday));
   });
 
   useEffect(() => {
@@ -74,14 +74,12 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
   const navigateWeek = (direction: "prev" | "next") => {
     setCurrentWeekStart((prev) => {
       const now = new Date();
-      const currentMonday = new Date(
-        now.setDate(
-          now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)
-        )
+      const currentSunday = new Date(
+        now.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? 0 : 7))
       );
       const newWeekStart = new Date(prev);
       newWeekStart.setDate(prev.getDate() + (direction === "next" ? 7 : -7));
-      return newWeekStart >= currentMonday ? newWeekStart : prev;
+      return newWeekStart >= currentSunday ? newWeekStart : prev;
     });
   };
 
@@ -166,7 +164,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                         new Date().setDate(
                           new Date().getDate() -
                             new Date().getDay() +
-                            (new Date().getDay() === 0 ? -6 : 1)
+                            (new Date().getDay() === 0 ? 0 : 7)
                         )
                       )
                     }
@@ -202,11 +200,28 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                     onSelectEvent={handleSelectEvent}
                     components={{
                       event: ({ event }) => (
-                        <span style={{ cursor: "pointer" }}>{event.title}</span>
+                        <span
+                          style={{
+                            padding: "5px",
+                            background: "#007bff",
+                            color: "white",
+                            borderRadius: "4px",
+                          }}
+                        >
+                          {event.title}
+                        </span>
+                      ),
+                      toolbar: (props) => (
+                        <div style={{ display: "none" }} /> // Hide default toolbar, use custom nav
                       ),
                     }}
-                    min={new Date(2025, 5, 24, 0, 0, 0)} // June 24, 2025, 12:00 AM PDT
-                    max={new Date(2025, 5, 24, 23, 59, 59)} // June 24, 2025, 11:59 PM PDT (adjust dynamically later)
+                    dayLayoutAlgorithm="no-overlap" // Prevent slot overlap
+                    min={new Date(2025, 5, 25, 0, 0, 0)} // June 25, 2025, 12:00 AM PDT
+                    max={new Date(2025, 5, 25, 23, 59, 59)} // June 25, 2025, 11:59 PM PDT (adjust dynamically)
+                    formats={{
+                      dayFormat: (date, culture, localizer) =>
+                        localizer.format(date, "ddd", culture), // Show "Sun", "Mon", etc.
+                    }}
                   />
                 </div>
               </div>
