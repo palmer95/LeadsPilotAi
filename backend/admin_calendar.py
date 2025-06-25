@@ -17,6 +17,7 @@ import base64
 import json
 import jwt
 import googleapiclient.discovery
+import pytz
 
 
 load_dotenv()
@@ -344,10 +345,17 @@ def get_slotsOLD():
         current = slot_end
     return create_response({"slots": slots[:20]})
 
-@bp.route("/week", methods=["GET"])
+@bp.route("/week", methods=["GET", "OPTIONS"])
 def get_week_calendar():
+    if request.method == "OPTIONS":
+        response = make_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+        return response
+
     company = request.args.get("company")
-    start_date_str = request.args.get("startDate")  # ISO date (e.g., "2025-06-24")
+    start_date_str = request.args.get("startDate")
 
     if not company:
         return jsonify({"error": "Missing 'company' param"}), 400
@@ -359,26 +367,53 @@ def get_week_calendar():
         return jsonify({"error": "Failed to load business config"}), 500
 
     business_hours = get_business_hours(config)
-    tz_local = pytz_timezone("America/Los_Angeles")
+    tz_local = pytz.timezone("America/Los_Angeles")
     now = datetime.now(tz_local)
     today = now.date()
 
-    # Validate and set start date (default to current week if not provided or past)
     if not start_date_str:
-        start_date = today - timedelta(days=today.weekday())  # Start of current week (Monday)
+        start_date = today - timedelta(days=(today.weekday() if today.weekday() != 0 else 6))  # Start on Sunday
     else:
         start_date = datetime.fromisoformat(start_date_str).date()
-        if start_date < today - timedelta(days=today.weekday()):  # Prevent past weeks
-            start_date = today - timedelta(days=today.weekday())
+        if start_date < today - timedelta(days=(today.weekday() if today.weekday() != 0 else 6)):
+            start_date = today - timedelta(days=(today.weekday() if today.weekday() != 0 else 6))
 
-    available_slots = {}
+    client = clients_collection.find_one({"slug": company})
+    if not client or not client.get("calendar_tokens"):
+        return jsonify({"error": "Calendar not connected"}), 404
 
-    for i in range(7):  # One week (7 days)
+    creds = Credentials(
+        token=client["calendar_tokens"]["token"],
+        refresh_token=client["calendar_tokens"]["refresh_token"],
+        token_uri=client["calendar_tokens"]["token_uri"],
+        client_id=client["calendar_tokens"]["client_id"],
+        client_secret=client["calendar_tokens"]["client_secret"],
+        scopes=client["calendar_tokens"]["scopes"]
+    )
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        clients_collection.update_one(
+            {"_id": client["_id"]},
+            {"$set": {"calendar_tokens": {
+                "token": creds.token,
+                "refresh_token": creds.refresh_token,
+                "token_uri": creds.token_uri,
+                "client_id": creds.client_id,
+                "client_secret": creds.client_secret,
+                "scopes": creds.scopes
+            }}}
+        )
+
+    service = build("calendar", "v3", credentials=creds)
+
+    available_slots = []
+
+    for i in range(7):  # One week (Sun-Sat)
         day = start_date + timedelta(days=i)
         weekday_name = day.strftime("%A").lower()
 
         if weekday_name not in business_hours:
-            continue  # Skip weekends or undefined days
+            continue
 
         open_str, close_str = business_hours[weekday_name]
         open_time = datetime.strptime(open_str, "%H:%M").time()
@@ -386,17 +421,31 @@ def get_week_calendar():
 
         current = tz_local.localize(datetime.combine(day, open_time))
         end = tz_local.localize(datetime.combine(day, close_time))
-        day_slots = []
 
         while current < end:
             if current > now:
-                day_slots.append(current.isoformat())
+                # Check Freebusy for this slot
+                start_time = current.isoformat().replace("+00:00", "Z")
+                end_time = (current + timedelta(minutes=30)).isoformat().replace("+00:00", "Z")
+                freebusy = service.freebusy().query(body={
+                    "timeMin": start_time,
+                    "timeMax": end_time,
+                    "items": [{"id": "primary"}]
+                }).execute()
+
+                if not freebusy["calendars"]["primary"].get("busy", []):
+                    available_slots.append(current.isoformat())
             current += timedelta(minutes=30)
 
-        if day_slots:  # Only include days with slots
-            available_slots[day.isoformat()] = day_slots
+    # Group by date for the response
+    calendar = {}
+    for slot in available_slots:
+        date = slot.split("T")[0]
+        if date not in calendar:
+            calendar[date] = []
+        calendar[date].append(slot)
 
-    return jsonify({"calendar": available_slots, "startDate": start_date.isoformat()})
+    return jsonify({"calendar": calendar, "startDate": start_date.isoformat()})
 
 @bp.route("/book", methods=["POST", "OPTIONS"])
 def book_appointment():
