@@ -116,7 +116,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
     "Friday",
     "Saturday",
     "Sunday",
-  ]; // Monday first, Sunday last
+  ];
   const weekDates = Array.from({ length: 7 }, (_, i) => {
     const date = new Date(currentWeekStart);
     date.setDate(currentWeekStart.getDate() + i);
@@ -191,56 +191,61 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                   </button>
                 </div>
                 <div className="calendar-table-wrapper">
-                  <div className="calendar-list">
-                    {daysOfWeek.map((day, index) => {
-                      const date = weekDates[index];
-                      const slots = calendar[date] || [];
-                      const displaySlots = showAllSlots[date]
-                        ? slots
-                        : slots.slice(0, 5);
-                      return (
-                        <div key={date} className="day-column">
-                          <h3 className="day-header">
-                            {day} ({new Date(date).getDate()})
-                          </h3>
-                          {displaySlots.length === 0 ? (
-                            <p className="no-slots">No available slots</p>
-                          ) : (
-                            displaySlots.map((slot) => (
-                              <button
-                                key={slot}
-                                className={
-                                  selectedSlot === slot
-                                    ? "slot-selected"
-                                    : "slot"
-                                }
-                                onClick={() => setSelectedSlot(slot)}
-                              >
-                                {new Date(slot).toLocaleTimeString("en-US", {
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                  hour12: true,
-                                })}
-                              </button>
-                            ))
-                          )}
-                          {slots.length > 5 && (
-                            <button
-                              className="view-more"
-                              onClick={() => toggleShowAll(date)}
-                              style={{
-                                display: "block",
-                                margin: showAllSlots[date]
-                                  ? "10px auto 0"
-                                  : "10px auto",
-                              }} // Centered by default
-                            >
-                              {showAllSlots[date] ? "View Less" : "View More"}
-                            </button>
-                          )}
+                  <div className="calendar-table">
+                    <div className="day-headers">
+                      {daysOfWeek.map((day, index) => (
+                        <div key={weekDates[index]} className="day-header-cell">
+                          {day} ({new Date(weekDates[index]).getDate()})
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
+                    <div className="day-slots">
+                      {weekDates.map((date) => {
+                        const slots = calendar[date] || [];
+                        const displaySlots = showAllSlots[date]
+                          ? slots
+                          : slots.slice(0, 5);
+                        return (
+                          <div key={date} className="day-column">
+                            {displaySlots.length === 0 ? (
+                              <p className="no-slots">No available slots</p>
+                            ) : (
+                              displaySlots.map((slot) => (
+                                <button
+                                  key={slot}
+                                  className={
+                                    selectedSlot === slot
+                                      ? "slot-selected"
+                                      : "slot"
+                                  }
+                                  onClick={() => setSelectedSlot(slot)}
+                                >
+                                  {new Date(slot).toLocaleTimeString("en-US", {
+                                    hour: "numeric",
+                                    minute: "2-digit",
+                                    hour12: true,
+                                  })}
+                                </button>
+                              ))
+                            )}
+                            {slots.length > 5 && (
+                              <button
+                                className="view-more"
+                                onClick={() => toggleShowAll(date)}
+                                style={{
+                                  display: "block",
+                                  margin: showAllSlots[date]
+                                    ? "10px auto 0"
+                                    : "10px auto",
+                                }} // Centered by default
+                              >
+                                {showAllSlots[date] ? "View Less" : "View More"}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
