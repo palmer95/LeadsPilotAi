@@ -191,7 +191,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                   </button>
                 </div>
                 <div className="calendar-table-wrapper">
-                  <div className="calendar-grid">
+                  <div className="calendar-list">
                     {daysOfWeek.map((day, index) => {
                       const date = weekDates[index];
                       const slots = calendar[date] || [];
@@ -224,20 +224,18 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                               </button>
                             ))
                           )}
-                          {slots.length > 5 && !showAllSlots[date] && (
+                          {slots.length > 5 && (
                             <button
                               className="view-more"
                               onClick={() => toggleShowAll(date)}
+                              style={{
+                                display: "block",
+                                margin: showAllSlots[date]
+                                  ? "10px auto 0"
+                                  : "10px auto",
+                              }} // Centered by default
                             >
-                              View More
-                            </button>
-                          )}
-                          {showAllSlots[date] && (
-                            <button
-                              className="view-less"
-                              onClick={() => toggleShowAll(date)}
-                            >
-                              View Less
+                              {showAllSlots[date] ? "View Less" : "View More"}
                             </button>
                           )}
                         </div>

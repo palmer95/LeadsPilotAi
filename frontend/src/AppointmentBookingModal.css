@@ -19,7 +19,7 @@
   padding: 20px !important;
   border-radius: 8px !important;
   width: 90% !important;
-  max-width: 1000px !important; /* Wider modal for grid */
+  max-width: 1000px !important; /* Wider modal for list */
   max-height: 80vh !important;
   overflow-y: auto !important;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1) !important;
@@ -27,7 +27,7 @@
   z-index: 2147483647 !important;
 }
 
-.modal-close {
+.modal-content .modal-close {
   position: absolute;
   top: 10px;
   right: 10px;
@@ -35,8 +35,8 @@
   background: none;
   font-size: 24px;
   cursor: pointer;
-  color: #ff0000 !important; /* Bright red for visibility */
-  text-shadow: 0 0 2px #000000; /* Shadow for contrast */
+  color: #ff0000 !important;
+  text-shadow: 0 0 2px #000000;
 }
 
 .modal-error {
@@ -89,13 +89,17 @@
   overflow-x: auto;
 }
 
-.calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 10px;
+.calendar-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: space-between;
 }
 
 .day-column {
+  flex: 1;
+  min-width: 120px;
+  max-width: 150px;
   border: 1px solid #dee2e6;
   border-radius: 4px;
   padding: 10px;
@@ -116,8 +120,7 @@
 
 .slot,
 .slot-selected,
-.view-more,
-.view-less {
+.view-more {
   display: block;
   width: 100%;
   padding: 8px;
@@ -132,8 +135,7 @@
 
 .slot:hover,
 .slot-selected:hover,
-.view-more:hover,
-.view-less:hover {
+.view-more:hover {
   background: #e9ecef;
 }
 
@@ -143,16 +145,31 @@
   border-color: #0056b3;
 }
 
-.view-more,
-.view-less {
+.view-more {
   background: #007bff;
   color: white;
   border-color: #0056b3;
   margin-top: 10px;
 }
 
-/* Form and input styles */
-form {
+/* Option 1: Centered "View More" (Default) */
+/* Already implemented with margin: 10px auto in JSX */
+
+/* Option 2: Under Column "View More" (Uncomment to use) */
+/*
+.view-more {
+  position: relative;
+  margin-top: 10px;
+  width: auto;
+  display: inline-block;
+  padding: 5px 10px;
+}
+.day-column:hover .view-more {
+  display: inline-block;
+}
+*/
+
+.form {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -198,7 +215,10 @@ button:disabled {
   .modal-content {
     max-width: 90% !important;
   }
-  .calendar-grid {
-    grid-template-columns: repeat(7, minmax(120px, 1fr));
+  .calendar-list {
+    flex-direction: column;
+  }
+  .day-column {
+    max-width: 100%;
   }
 }
