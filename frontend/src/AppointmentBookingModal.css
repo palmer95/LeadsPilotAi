@@ -35,7 +35,8 @@
   background: none;
   font-size: 24px;
   cursor: pointer;
-  color: #000000; /* Explicitly set to black for visibility */
+  color: #ff0000 !important; /* Bright red to ensure visibility */
+  text-shadow: 0 0 2px #000000; /* Add shadow for contrast */
 }
 
 .modal-error {
@@ -81,15 +82,23 @@
 
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr); /* 7 days (Sun-Sat) */
-  gap: 10px;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px; /* Tighter spacing */
+  background: #f8f9fa; /* Light background for calendar feel */
+  padding: 5px;
+  border-radius: 4px;
 }
 
 .calendar-day {
-  border: 1px solid #ccc;
+  border: 1px solid #dee2e6; /* Subtle border */
   padding: 10px;
   text-align: center;
-  min-height: 100px; /* Consistent height for days */
+  min-height: 120px; /* Taller for better slot visibility */
+  background: white; /* White day boxes */
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
 }
 
 .calendar-day h3 {
