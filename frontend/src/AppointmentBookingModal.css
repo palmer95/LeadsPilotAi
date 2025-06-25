@@ -19,7 +19,7 @@
   padding: 20px !important;
   border-radius: 8px !important;
   width: 90% !important;
-  max-width: 800px !important; /* Wider modal */
+  max-width: 1000px !important; /* Wider modal for grid */
   max-height: 80vh !important;
   overflow-y: auto !important;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1) !important;
@@ -85,33 +85,70 @@
   color: #333;
 }
 
-.calendar-wrapper {
-  margin: 0 -20px; /* Offset padding */
+.calendar-table-wrapper {
+  overflow-x: auto;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+
+.day-column {
   border: 1px solid #dee2e6;
   border-radius: 4px;
+  padding: 10px;
+  text-align: center;
 }
 
-.fc .fc-timegrid-slot {
-  border-color: #dee2e6 !important;
+.day-header {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 10px;
 }
 
-.fc .fc-daygrid-day-number,
-.fc .fc-timegrid-slot-label {
-  font-size: 14px !important;
-  color: #333 !important;
+.no-slots {
+  color: #666;
+  font-style: italic;
 }
 
-.fc .fc-event {
-  background: #007bff !important;
-  border: none !important;
-  border-radius: 4px !important;
-  padding: 2px 5px !important;
-  font-size: 12px !important;
-  cursor: pointer !important;
+.slot,
+.slot-selected,
+.view-more,
+.view-less {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  margin: 5px 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
 }
 
-.fc .fc-event:hover {
-  background: #0056b3 !important;
+.slot:hover,
+.slot-selected:hover,
+.view-more:hover,
+.view-less:hover {
+  background: #e9ecef;
+}
+
+.slot-selected {
+  background: #007bff;
+  color: white;
+  border-color: #0056b3;
+}
+
+.view-more,
+.view-less {
+  background: #007bff;
+  color: white;
+  border-color: #0056b3;
+  margin-top: 10px;
 }
 
 /* Form and input styles */
@@ -155,4 +192,13 @@ button:hover:not(:disabled) {
 button:disabled {
   background: #ccc;
   cursor: not-allowed;
+}
+
+@media (max-width: 1000px) {
+  .modal-content {
+    max-width: 90% !important;
+  }
+  .calendar-grid {
+    grid-template-columns: repeat(7, minmax(120px, 1fr));
+  }
 }
