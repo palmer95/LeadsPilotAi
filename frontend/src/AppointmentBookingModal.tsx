@@ -139,6 +139,10 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
     setShowAllSlots((prev) => ({ ...prev, [date]: !prev[date] }));
   };
 
+  // Determine the maximum number of slots to render based on "View More"
+  const getMaxSlots = (date: string) =>
+    showAllSlots[date] ? calendar[date]?.length || 0 : 5;
+
   return createPortal(
     <ShadowWrapper>
       {success ? (
@@ -223,42 +227,48 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                       </tr>
                     </thead>
                     <tbody className="day-slots">
-                      {Array.from({ length: 5 }).map((_, rowIndex) => (
-                        <tr key={rowIndex} className="slot-row">
-                          {weekDates.map((date) => {
-                            const slots = calendar[date] || [];
-                            const displaySlots = showAllSlots[date]
-                              ? slots
-                              : slots.slice(0, 5);
-                            const slot = displaySlots[rowIndex];
-                            return (
-                              <td key={date} className="day-column">
-                                {slot ? (
-                                  <button
-                                    className={
-                                      selectedSlot === slot
-                                        ? "slot-selected"
-                                        : "slot"
-                                    }
-                                    onClick={() => setSelectedSlot(slot)}
-                                  >
-                                    {new Date(slot).toLocaleTimeString(
-                                      "en-US",
-                                      {
-                                        hour: "numeric",
-                                        minute: "2-digit",
-                                        hour12: true,
+                      {Array.from({ length: 10 }).map(
+                        (
+                          _,
+                          rowIndex // Increased to 10 to handle more slots if expanded
+                        ) => (
+                          <tr key={rowIndex} className="slot-row">
+                            {weekDates.map((date) => {
+                              const slots = calendar[date] || [];
+                              const maxSlots = getMaxSlots(date);
+                              const displaySlots = slots.slice(0, maxSlots);
+                              const slot = displaySlots[rowIndex];
+                              return (
+                                <td key={date} className="day-column">
+                                  {slot ? (
+                                    <button
+                                      className={
+                                        selectedSlot === slot
+                                          ? "slot-selected"
+                                          : "slot"
                                       }
-                                    )}
-                                  </button>
-                                ) : rowIndex === 0 && slots.length === 0 ? (
-                                  <p className="no-slots">No available slots</p>
-                                ) : null}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
+                                      onClick={() => setSelectedSlot(slot)}
+                                    >
+                                      {new Date(slot).toLocaleTimeString(
+                                        "en-US",
+                                        {
+                                          hour: "numeric",
+                                          minute: "2-digit",
+                                          hour12: true,
+                                        }
+                                      )}
+                                    </button>
+                                  ) : rowIndex === 0 && slots.length === 0 ? (
+                                    <p className="no-slots">
+                                      No available slots
+                                    </p>
+                                  ) : null}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        )
+                      )}
                       <tr className="view-more-row">
                         {weekDates.map((date) => (
                           <td key={date} className="day-column">
