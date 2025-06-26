@@ -89,20 +89,45 @@
   overflow-x: auto; /* Ensure horizontal scroll if needed */
 }
 
-.day-slots {
+.calendar-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.day-headers {
   display: flex;
   justify-content: space-between;
-  flex-wrap: nowrap; /* Prevent vertical stacking */
+  border-bottom: 2px solid #dee2e6;
+  padding-bottom: 5px;
+  margin-bottom: 10px;
+}
+
+.day-header-cell {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  min-width: 120px; /* Prevent wrapping */
+}
+
+.day-slots {
+  display: flex;
+  flex-direction: column;
 }
 
 .slot-grid {
-  display: flex;
-  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+}
+
+.slot-row,
+.view-more-row {
+  display: contents; /* Let grid handle layout */
 }
 
 .day-column {
-  flex: 1;
-  min-width: 120px; /* Adjust if headers wrap */
   padding: 10px;
   text-align: center;
   border: 1px solid #dee2e6;
@@ -148,23 +173,7 @@
   margin-top: 10px;
 }
 
-/* Option 1: Centered "View More" (Default) */
-/* Already implemented with margin: 10px auto in JSX */
-
-/* Option 2: Under Column "View More" (Uncomment to use) */
-/*
-.view-more {
-  position: relative;
-  margin-top: 10px;
-  width: auto;
-  display: inline-block;
-  padding: 5px 10px;
-}
-.day-column:hover .view-more {
-  display: inline-block;
-}
-*/
-
+/* Form and input styles */
 .form {
   display: flex;
   flex-direction: column;
@@ -219,5 +228,8 @@ button:disabled {
   .day-column {
     min-width: 100%;
     margin-bottom: 10px;
+  }
+  .slot-grid {
+    grid-template-columns: 1fr; /* Stack on mobile */
   }
 }

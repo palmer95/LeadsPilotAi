@@ -201,48 +201,66 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                     </div>
                     <div className="day-slots">
                       <div className="slot-grid">
-                        {weekDates.map((date) => (
-                          <div key={date} className="day-column">
-                            {calendar[date] && calendar[date].length > 0 ? (
-                              (showAllSlots[date]
-                                ? calendar[date]
-                                : calendar[date].slice(0, 5)
-                              ).map((slot) => (
-                                <button
-                                  key={slot}
-                                  className={
-                                    selectedSlot === slot
-                                      ? "slot-selected"
-                                      : "slot"
-                                  }
-                                  onClick={() => setSelectedSlot(slot)}
-                                >
-                                  {new Date(slot).toLocaleTimeString("en-US", {
-                                    hour: "numeric",
-                                    minute: "2-digit",
-                                    hour12: true,
-                                  })}
-                                </button>
-                              ))
-                            ) : (
-                              <p className="no-slots">No available slots</p>
-                            )}
-                            {calendar[date] && calendar[date].length > 5 && (
-                              <button
-                                className="view-more"
-                                onClick={() => toggleShowAll(date)}
-                                style={{
-                                  display: "block",
-                                  margin: showAllSlots[date]
-                                    ? "10px auto 0"
-                                    : "10px auto",
-                                }} // Centered
-                              >
-                                {showAllSlots[date] ? "View Less" : "View More"}
-                              </button>
-                            )}
+                        {Array.from({ length: 5 }).map((_, slotIndex) => (
+                          <div key={slotIndex} className="slot-row">
+                            {weekDates.map((date) => {
+                              const slots = calendar[date] || [];
+                              const displaySlots = showAllSlots[date]
+                                ? slots
+                                : slots.slice(0, 5);
+                              const slot = displaySlots[slotIndex];
+                              return (
+                                <div key={date} className="day-column">
+                                  {slot ? (
+                                    <button
+                                      className={
+                                        selectedSlot === slot
+                                          ? "slot-selected"
+                                          : "slot"
+                                      }
+                                      onClick={() => setSelectedSlot(slot)}
+                                    >
+                                      {new Date(slot).toLocaleTimeString(
+                                        "en-US",
+                                        {
+                                          hour: "numeric",
+                                          minute: "2-digit",
+                                          hour12: true,
+                                        }
+                                      )}
+                                    </button>
+                                  ) : (
+                                    slotIndex === 0 && (
+                                      <p className="no-slots">
+                                        No available slots
+                                      </p>
+                                    )
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         ))}
+                        <div className="view-more-row">
+                          {weekDates.map((date) => (
+                            <div key={date} className="day-column">
+                              {calendar[date] && calendar[date].length > 5 && (
+                                <button
+                                  className="view-more"
+                                  onClick={() => toggleShowAll(date)}
+                                  style={{
+                                    display: "block",
+                                    margin: "10px auto",
+                                  }}
+                                >
+                                  {showAllSlots[date]
+                                    ? "View Less"
+                                    : "View More"}
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
