@@ -103,6 +103,20 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
       })
     : "";
 
+  const getDaySuffix = (day: number) => {
+    if (day > 3 && day < 21) return "th";
+    switch (day % 10) {
+      case 1:
+        return "st";
+      case 2:
+        return "nd";
+      case 3:
+        return "rd";
+      default:
+        return "th";
+    }
+  };
+
   const target =
     document.getElementById("leads-pilot-chatbot-container") || document.body;
 
@@ -192,14 +206,20 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                   <table className="calendar-table">
                     <thead>
                       <tr className="day-headers">
-                        {daysOfWeek.map((day, index) => (
-                          <th
-                            key={weekDates[index]}
-                            className="day-header-cell"
-                          >
-                            {day} ({new Date(weekDates[index]).getDate()})
-                          </th>
-                        ))}
+                        {daysOfWeek.map((day, index) => {
+                          const date = new Date(weekDates[index]);
+                          const dayNum = date.getDate();
+                          const suffix = getDaySuffix(dayNum);
+                          return (
+                            <th
+                              key={weekDates[index]}
+                              className="day-header-cell"
+                            >
+                              {day} ({dayNum}
+                              {suffix})
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody className="day-slots">
