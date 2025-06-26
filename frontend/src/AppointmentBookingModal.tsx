@@ -17,6 +17,9 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
 }) => {
   const [calendar, setCalendar] = useState<{ [date: string]: string[] }>({});
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [showAllSlots, setShowAllSlots] = useState<{ [date: string]: boolean }>(
+    {}
+  );
   const [bookedSlot, setBookedSlot] = useState<string | null>(null);
   const [name, setName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
@@ -25,25 +28,19 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
-  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const diffToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
-    return new Date(now.setDate(now.getDate() + diffToSunday));
-  });
-  const [showAllSlots, setShowAllSlots] = useState<{ [date: string]: boolean }>(
-    {}
-  ); // Track expanded days
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(
+    () => new Date()
+  ); // Start from today
 
   useEffect(() => {
     const fetchCalendar = async () => {
       try {
-        const startOfWeek = currentWeekStart.toISOString().split("T")[0];
+        const now = new Date().toISOString(); // e.g., "2025-06-25T21:21:00.000Z"
         const res = await axios.get<{
           calendar: { [date: string]: string[] };
           startDate: string;
         }>(
-          `${API_BASE_URL}/api/admin/calendar/week?company=${company}&startDate=${startOfWeek}`
+          `${API_BASE_URL}/api/admin/calendar/week?company=${company}&currentTime=${now}`
         );
         setCalendar(res.data.calendar || {});
       } catch (err) {
@@ -54,17 +51,13 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
       }
     };
     fetchCalendar();
-  }, [company, currentWeekStart]);
+  }, [company]);
 
   const navigateWeek = (direction: "prev" | "next") => {
     setCurrentWeekStart((prev) => {
-      const now = new Date();
-      const currentSunday = new Date(
-        now.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? 0 : 7))
-      );
       const newWeekStart = new Date(prev);
       newWeekStart.setDate(prev.getDate() + (direction === "next" ? 7 : -7));
-      return newWeekStart >= currentSunday ? newWeekStart : prev;
+      return newWeekStart; // Shift the base day
     });
   };
 
@@ -117,6 +110,12 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
     }
   };
 
+  const now = new Date();
+  const isPastDay = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date < now && date.getDate() !== now.getDate(); // Past days, but allow today
+  };
+
   const target =
     document.getElementById("leads-pilot-chatbot-container") || document.body;
 
@@ -139,7 +138,6 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
     setShowAllSlots((prev) => ({ ...prev, [date]: !prev[date] }));
   };
 
-  // Determine the maximum number of slots to render based on "View More"
   const getMaxSlots = (date: string) =>
     showAllSlots[date] ? calendar[date]?.length || 0 : 5;
 
@@ -227,48 +225,45 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                       </tr>
                     </thead>
                     <tbody className="day-slots">
-                      {Array.from({ length: 10 }).map(
-                        (
-                          _,
-                          rowIndex // Increased to 10 to handle more slots if expanded
-                        ) => (
-                          <tr key={rowIndex} className="slot-row">
-                            {weekDates.map((date) => {
-                              const slots = calendar[date] || [];
-                              const maxSlots = getMaxSlots(date);
-                              const displaySlots = slots.slice(0, maxSlots);
-                              const slot = displaySlots[rowIndex];
-                              return (
-                                <td key={date} className="day-column">
-                                  {slot ? (
-                                    <button
-                                      className={
-                                        selectedSlot === slot
-                                          ? "slot-selected"
-                                          : "slot"
+                      {Array.from({ length: 10 }).map((_, rowIndex) => (
+                        <tr key={rowIndex} className="slot-row">
+                          {weekDates.map((date) => {
+                            const slots = calendar[date] || [];
+                            const maxSlots = getMaxSlots(date);
+                            const displaySlots = slots.slice(0, maxSlots);
+                            const slot = displaySlots[rowIndex];
+                            const isPast = isPastDay(date);
+                            return (
+                              <td key={date} className="day-column">
+                                {slot ? (
+                                  <button
+                                    className={
+                                      selectedSlot === slot
+                                        ? "slot-selected"
+                                        : "slot"
+                                    }
+                                    onClick={() =>
+                                      !isPast && setSelectedSlot(slot)
+                                    }
+                                    disabled={isPast}
+                                  >
+                                    {new Date(slot).toLocaleTimeString(
+                                      "en-US",
+                                      {
+                                        hour: "numeric",
+                                        minute: "2-digit",
+                                        hour12: true,
                                       }
-                                      onClick={() => setSelectedSlot(slot)}
-                                    >
-                                      {new Date(slot).toLocaleTimeString(
-                                        "en-US",
-                                        {
-                                          hour: "numeric",
-                                          minute: "2-digit",
-                                          hour12: true,
-                                        }
-                                      )}
-                                    </button>
-                                  ) : rowIndex === 0 && slots.length === 0 ? (
-                                    <p className="no-slots">
-                                      No available slots
-                                    </p>
-                                  ) : null}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        )
-                      )}
+                                    )}
+                                  </button>
+                                ) : rowIndex === 0 && slots.length === 0 ? (
+                                  <p className="no-slots">No available slots</p>
+                                ) : null}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
                       <tr className="view-more-row">
                         {weekDates.map((date) => (
                           <td key={date} className="day-column">
@@ -280,6 +275,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
                                   display: "block",
                                   margin: "10px auto",
                                 }}
+                                disabled={isPastDay(date)}
                               >
                                 {showAllSlots[date] ? "View Less" : "View More"}
                               </button>
