@@ -291,6 +291,7 @@ def get_week_calendar():
 
     company = request.args.get("company")
     start_date_str = request.args.get("startDate")
+    week_offset = request.args.get("weekOffset", type=int, default=0)  # New parameter, default 0
 
     if not company:
         return jsonify({"error": "Missing 'company' param"}), 400
@@ -306,12 +307,11 @@ def get_week_calendar():
     now = datetime.now(tz_local)
     today = now.date()
 
-    if not start_date_str:
-        start_date = today - timedelta(days=(today.weekday() if today.weekday() != 0 else 6))  # Start on Sunday
-    else:
+    # Calculate start date based on offset
+    if start_date_str:
         start_date = datetime.fromisoformat(start_date_str).date()
-        if start_date < today - timedelta(days=(today.weekday() if today.weekday() != 0 else 6)):
-            start_date = today - timedelta(days=(today.weekday() if today.weekday() != 0 else 6))
+    else:
+        start_date = today + timedelta(days=week_offset * 7)  # Shift by weeks
 
     client = clients_collection.find_one({"slug": company})
     if not client or not client.get("calendar_tokens"):
@@ -343,7 +343,8 @@ def get_week_calendar():
 
     available_slots = []
 
-    for i in range(7):  # One week (Sun-Sat)
+    # Start from start_date, go 7 days forward
+    for i in range(7):
         day = start_date + timedelta(days=i)
         weekday_name = day.strftime("%A").lower()
 
@@ -354,10 +355,10 @@ def get_week_calendar():
         open_time = datetime.strptime(open_str, "%H:%M").time()
         close_time = datetime.strptime(close_str, "%H:%M").time()
 
-        # Start from now or the day's open time, whichever is later
+        # Start from now on the first day if within this week, else day's open time
         current = tz_local.localize(datetime.combine(day, open_time))
-        if day == today and current < now:
-            current = now.replace(hour=current.hour, minute=current.minute, second=0, microsecond=0)  # Snap to next 30-min interval if past now
+        if week_offset == 0 and i == 0 and current < now:  # Only adjust for current week, day 0
+            current = now.replace(hour=current.hour, minute=current.minute, second=0, microsecond=0)
             if current.minute >= 30:
                 current += timedelta(minutes=30 - current.minute % 30)
             else:
@@ -366,7 +367,6 @@ def get_week_calendar():
         end = tz_local.localize(datetime.combine(day, close_time))
 
         while current < end:
-            # Check Freebusy for this slot
             start_time = current.isoformat().replace("+00:00", "Z")
             end_time = (current + timedelta(minutes=30)).isoformat().replace("+00:00", "Z")
             freebusy = service.freebusy().query(body={
@@ -385,7 +385,7 @@ def get_week_calendar():
         date = slot.split("T")[0]
         if date not in calendar:
             calendar[date] = []
-        if len(calendar[date]) < 12:  # Limit to 12 slots per day
+        if len(calendar[date]) < 12:
             calendar[date].append(slot)
 
     return jsonify({"calendar": calendar, "startDate": start_date.isoformat()})
