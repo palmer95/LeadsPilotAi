@@ -280,71 +280,6 @@ def get_slots():
 
     return jsonify({"slots": available_slots})
 
-@bp.route("/slotsOLD", methods=["GET", "OPTIONS"])
-def get_slotsOLD():
-    if request.method == 'OPTIONS':
-        response = make_response()
-        response.status_code = 200
-        response.headers['Access-Control-Allow-Origin'] = 'https://www.leadspilotai.com'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
-        return response
-
-   # this assumes its the actual client_slug
-    company = request.args.get('company')
-    if not company:
-        return create_response({"error": "Missing company"}, 403)
-
-    client = clients_collection.find_one({"slug": company})
-    if not client or not client.get("calendar_tokens"):
-        return create_response({"error": "Calendar not connected"}, 404)
-
-    creds = Credentials(
-        token=client["calendar_tokens"]["token"],
-        refresh_token=client["calendar_tokens"]["refresh_token"],
-        token_uri=client["calendar_tokens"]["token_uri"],
-        client_id=client["calendar_tokens"]["client_id"],
-        client_secret=client["calendar_tokens"]["client_secret"],
-        scopes=client["calendar_tokens"]["scopes"]
-    )
-    if creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        clients_collection.update_one(
-            {"_id": client['_id']},
-            {"$set": {"calendar_tokens": {
-                "token": creds.token,
-                "refresh_token": creds.refresh_token,
-                "token_uri": creds.token_uri,
-                "client_id": creds.client_id,
-                "client_secret": creds.client_secret,
-                "scopes": creds.scopes
-            }}}
-        )
-
-    service = build('calendar', 'v3', credentials=creds)
-    now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
-    end = now + timedelta(days=7)
-    
-    freebusy = service.freebusy().query(body={
-        "timeMin": now.isoformat() + 'Z',
-        "timeMax": end.isoformat() + 'Z',
-        "items": [{"id": "primary"}]
-    }).execute()
-
-    busy = freebusy["calendars"]["primary"]["busy"]
-    slots = []
-    current = now
-    while current < end:
-        slot_end = current + timedelta(minutes=30)
-        if not any(
-            datetime.fromisoformat(b["start"].rstrip("Z")) < slot_end and
-            datetime.fromisoformat(b["end"].rstrip("Z")) > current
-            for b in busy
-        ):
-            slots.append(current.isoformat())
-        current = slot_end
-    return create_response({"slots": slots[:20]})
-
 @bp.route("/week", methods=["GET", "OPTIONS"])
 def get_week_calendar():
     if request.method == "OPTIONS":
@@ -419,31 +354,39 @@ def get_week_calendar():
         open_time = datetime.strptime(open_str, "%H:%M").time()
         close_time = datetime.strptime(close_str, "%H:%M").time()
 
+        # Start from now or the day's open time, whichever is later
         current = tz_local.localize(datetime.combine(day, open_time))
+        if day == today and current < now:
+            current = now.replace(hour=current.hour, minute=current.minute, second=0, microsecond=0)  # Snap to next 30-min interval if past now
+            if current.minute >= 30:
+                current += timedelta(minutes=30 - current.minute % 30)
+            else:
+                current += timedelta(minutes=30 - current.minute)
+
         end = tz_local.localize(datetime.combine(day, close_time))
 
         while current < end:
-            if current > now:
-                # Check Freebusy for this slot
-                start_time = current.isoformat().replace("+00:00", "Z")
-                end_time = (current + timedelta(minutes=30)).isoformat().replace("+00:00", "Z")
-                freebusy = service.freebusy().query(body={
-                    "timeMin": start_time,
-                    "timeMax": end_time,
-                    "items": [{"id": "primary"}]
-                }).execute()
+            # Check Freebusy for this slot
+            start_time = current.isoformat().replace("+00:00", "Z")
+            end_time = (current + timedelta(minutes=30)).isoformat().replace("+00:00", "Z")
+            freebusy = service.freebusy().query(body={
+                "timeMin": start_time,
+                "timeMax": end_time,
+                "items": [{"id": "primary"}]
+            }).execute()
 
-                if not freebusy["calendars"]["primary"].get("busy", []):
-                    available_slots.append(current.isoformat())
+            if not freebusy["calendars"]["primary"].get("busy", []):
+                available_slots.append(current.isoformat())
             current += timedelta(minutes=30)
 
-    # Group by date for the response
+    # Group by date for the response, limit to 12 per day
     calendar = {}
     for slot in available_slots:
         date = slot.split("T")[0]
         if date not in calendar:
             calendar[date] = []
-        calendar[date].append(slot)
+        if len(calendar[date]) < 12:  # Limit to 12 slots per day
+            calendar[date].append(slot)
 
     return jsonify({"calendar": calendar, "startDate": start_date.isoformat()})
 
