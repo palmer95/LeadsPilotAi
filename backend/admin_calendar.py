@@ -291,7 +291,6 @@ def get_week_calendar():
 
     company = request.args.get("company")
     start_date_str = request.args.get("startDate")
-    week_offset = request.args.get("weekOffset", type=int, default=0)  # New parameter, default 0
 
     if not company:
         return jsonify({"error": "Missing 'company' param"}), 400
@@ -307,11 +306,11 @@ def get_week_calendar():
     now = datetime.now(tz_local)
     today = now.date()
 
-    # Calculate start date based on offset
-    if start_date_str:
-        start_date = datetime.fromisoformat(start_date_str).date()
+    # Use provided start_date or default to today
+    if not start_date_str:
+        start_date = today
     else:
-        start_date = today + timedelta(days=week_offset * 7)  # Shift by weeks
+        start_date = datetime.fromisoformat(start_date_str).date()
 
     client = clients_collection.find_one({"slug": company})
     if not client or not client.get("calendar_tokens"):
@@ -355,9 +354,9 @@ def get_week_calendar():
         open_time = datetime.strptime(open_str, "%H:%M").time()
         close_time = datetime.strptime(close_str, "%H:%M").time()
 
-        # Start from now on the first day if within this week, else day's open time
+        # Start from now on the first day if it's today, else day's open time
         current = tz_local.localize(datetime.combine(day, open_time))
-        if week_offset == 0 and i == 0 and current < now:  # Only adjust for current week, day 0
+        if start_date == today and current < now:  # Only adjust for today
             current = now.replace(hour=current.hour, minute=current.minute, second=0, microsecond=0)
             if current.minute >= 30:
                 current += timedelta(minutes=30 - current.minute % 30)
