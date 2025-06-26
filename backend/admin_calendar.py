@@ -290,10 +290,10 @@ def get_week_calendar():
         return response
 
     company = request.args.get("company")
-    start_date_str = request.args.get("startDate")
+    current_time_str = request.args.get("currentTime")  # New parameter for current timestamp
 
-    if not company:
-        return jsonify({"error": "Missing 'company' param"}), 400
+    if not company or not current_time_str:
+        return jsonify({"error": "Missing 'company' or 'currentTime' param"}), 400
 
     try:
         config = get_config(company)
@@ -303,14 +303,8 @@ def get_week_calendar():
 
     business_hours = get_business_hours(config)
     tz_local = pytz.timezone("America/Los_Angeles")
-    now = datetime.now(tz_local)
-    today = now.date()
-
-    # Use provided start_date or default to today
-    if not start_date_str:
-        start_date = today
-    else:
-        start_date = datetime.fromisoformat(start_date_str).date()
+    current_time = datetime.fromisoformat(current_time_str.replace("Z", "+00:00")).astimezone(tz_local)  # Convert to PDT
+    today = current_time.date()
 
     client = clients_collection.find_one({"slug": company})
     if not client or not client.get("calendar_tokens"):
@@ -342,9 +336,9 @@ def get_week_calendar():
 
     available_slots = []
 
-    # Start from start_date, go 7 days forward
+    # Start from current_time, go 7 days forward
     for i in range(7):
-        day = start_date + timedelta(days=i)
+        day = today + timedelta(days=i)
         weekday_name = day.strftime("%A").lower()
 
         if weekday_name not in business_hours:
@@ -354,10 +348,10 @@ def get_week_calendar():
         open_time = datetime.strptime(open_str, "%H:%M").time()
         close_time = datetime.strptime(close_str, "%H:%M").time()
 
-        # Start from now on the first day if it's today, else day's open time
         current = tz_local.localize(datetime.combine(day, open_time))
-        if start_date == today and current < now:  # Only adjust for today
-            current = now.replace(hour=current.hour, minute=current.minute, second=0, microsecond=0)
+        # Adjust to start from current_time on the first day
+        if i == 0 and current < current_time:
+            current = current_time.replace(second=0, microsecond=0)
             if current.minute >= 30:
                 current += timedelta(minutes=30 - current.minute % 30)
             else:
@@ -387,8 +381,7 @@ def get_week_calendar():
         if len(calendar[date]) < 12:
             calendar[date].append(slot)
 
-    return jsonify({"calendar": calendar, "startDate": start_date.isoformat()})
-
+    return jsonify({"calendar": calendar, "startDate": today.isoformat()})
 @bp.route("/book", methods=["POST", "OPTIONS"])
 def book_appointment():
     if request.method == 'OPTIONS':
