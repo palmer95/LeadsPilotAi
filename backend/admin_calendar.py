@@ -335,43 +335,48 @@ def get_week_calendar():
     service = build("calendar", "v3", credentials=creds)
 
     available_slots = []
+    days_to_check = 14 # Let's give users two weeks to look forward
+    tz_local = pytz.timezone("America/Los_Angeles") # Make sure this is defined
+    now_in_tz = datetime.now(tz_local)
 
-    # Start from current_time, go 7 days forward
-    for i in range(7):
-        day = today + timedelta(days=i)
+    # Start from the date of the currentTime sent from the frontend
+    start_date = datetime.fromisoformat(current_time_str.replace("Z", "+00:00")).astimezone(tz_local).date()
+
+    for i in range(days_to_check):
+        day = start_date + timedelta(days=i)
         weekday_name = day.strftime("%A").lower()
 
         if weekday_name not in business_hours:
             continue
 
         open_str, close_str = business_hours[weekday_name]
-        open_time = datetime.strptime(open_str, "%H:%M").time()
-        close_time = datetime.strptime(close_str, "%H:%M").time()
+        # Combine date with time strings and make them timezone-aware
+        open_dt = tz_local.localize(datetime.combine(day, datetime.strptime(open_str, "%H:%M").time()))
+        close_dt = tz_local.localize(datetime.combine(day, datetime.strptime(close_str, "%H:%M").time()))
+        
+        current_slot_start = open_dt
 
-        current = tz_local.localize(datetime.combine(day, open_time))
-        # Adjust to start from current_time on the first day
-        if i == 0 and current < current_time:
-            current = current_time.replace(second=0, microsecond=0)
-            if current.minute >= 30:
-                current += timedelta(minutes=30 - current.minute % 30)
-            else:
-                current += timedelta(minutes=30 - current.minute)
+        while current_slot_start < close_dt:
+            # ---- THIS IS THE KEY LOGIC CHANGE ----
+            # 1. Skip any slot that starts in the past.
+            if current_slot_start < now_in_tz:
+                current_slot_start += timedelta(minutes=30)
+                continue # Move to the next potential slot
 
-        end = tz_local.localize(datetime.combine(day, close_time))
-
-        while current < end:
-            start_time = current.isoformat().replace("+00:00", "Z")
-            end_time = (current + timedelta(minutes=30)).isoformat().replace("+00:00", "Z")
+            # 2. Check if this future slot is free
+            start_time_utc = current_slot_start.isoformat()
+            end_time_utc = (current_slot_start + timedelta(minutes=30)).isoformat()
+            
             freebusy = service.freebusy().query(body={
-                "timeMin": start_time,
-                "timeMax": end_time,
+                "timeMin": start_time_utc,
+                "timeMax": end_time_utc,
                 "items": [{"id": "primary"}]
             }).execute()
 
             if not freebusy["calendars"]["primary"].get("busy", []):
-                available_slots.append(current.isoformat())
-            current += timedelta(minutes=30)
-
+                available_slots.append(current_slot_start.isoformat())
+                
+            current_slot_start += timedelta(minutes=30)
     # Group by date for the response, limit to 12 per day
     calendar = {}
     for slot in available_slots:
@@ -382,6 +387,7 @@ def get_week_calendar():
             calendar[date].append(slot)
 
     return jsonify({"calendar": calendar, "startDate": today.isoformat()})
+
 @bp.route("/book", methods=["POST", "OPTIONS"])
 def book_appointment():
     if request.method == 'OPTIONS':
@@ -462,7 +468,8 @@ def book_appointment():
 
         pacific = ZoneInfo("America/Los_Angeles")
         start_local = start.astimezone(pacific)
-        end_local = start.astimezone(pacific)
+        #end_local = start.astimezone(pacific)
+        end_local = end.astimezone(pacific)
         # Book the event
         event = {
             'summary': f'Phone call with {name}',
