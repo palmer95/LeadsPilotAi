@@ -217,9 +217,9 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
 
   const getStartOfWeek = (date: Date) => {
     const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    d.setHours(0, 0, 0, 0);
+    d.setHours(0, 0, 0, 0); // Ensure we start at midnight
+    const day = d.getDay(); // Sunday = 0, Monday = 1, ...
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday to go back to Monday
     return new Date(d.setDate(diff));
   };
 
