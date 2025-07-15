@@ -118,7 +118,6 @@ def create_response(data, status=200):
 
 
 @bp.route('/verify-token', methods=['GET', 'OPTIONS'])
-@cross_origin(supports_credentials=True) # <-- 2. Add this decorator
 def verify_token():
     if request.method == 'OPTIONS':
         response = make_response()

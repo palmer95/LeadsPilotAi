@@ -39,6 +39,14 @@ app = Flask(__name__)
 # Flask App Configuration (no change)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
+
+# Register Blueprints (no change)
+app.register_blueprint(onboard_bp)
+app.register_blueprint(admin_auth_bp)
+app.register_blueprint(calendar_bp)
+app.register_blueprint(admin_routes_bp)
+
+
 CORS(app, origins=["https://www.leadspilotai.com", "http://localhost:3000"], supports_credentials=True)
 
 # Database Setup (no change)
@@ -47,11 +55,6 @@ mongo_client = MongoClient(MONGO_URI)
 db = mongo_client['leadsPilotAI']
 conversations_collection = db["conversations"]
 
-# Register Blueprints (no change)
-app.register_blueprint(onboard_bp)
-app.register_blueprint(admin_auth_bp)
-app.register_blueprint(calendar_bp)
-app.register_blueprint(admin_routes_bp)
 
 # Caches for vector stores and configs (no change)
 _vectorstore_cache: dict[str, FAISS] = {}
