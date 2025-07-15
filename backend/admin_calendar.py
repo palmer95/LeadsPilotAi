@@ -283,7 +283,6 @@ def get_slots():
 @bp.route("/week", methods=["GET", "OPTIONS"])
 def get_week_calendar():
     if request.method == "OPTIONS":
-        # ... (OPTIONS handling remains the same)
         response = make_response()
         response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
@@ -291,10 +290,11 @@ def get_week_calendar():
         return response
 
     company = request.args.get("company")
+    # This is the user's desired VIEWING date, which changes with prev/next clicks
     requested_start_str = request.args.get("currentTime")
 
     if not company or not requested_start_str:
-        return jsonify({"error": "Missing 'company' or 'currentTime' param"}), 400
+        return jsonify({"error": "Missing required parameters"}), 400
 
     try:
         config = get_config(company)
@@ -302,7 +302,7 @@ def get_week_calendar():
         if not client or not client.get("calendar_tokens"):
             return jsonify({"error": "Calendar not connected"}), 404
         
-        # ... (credentials setup and refresh logic remains the same) ...
+        # Full credentials setup and refresh logic
         creds = Credentials(
             token=client["calendar_tokens"]["token"],
             refresh_token=client["calendar_tokens"]["refresh_token"],
@@ -314,9 +314,12 @@ def get_week_calendar():
         if creds.expired and creds.refresh_token:
             creds.refresh(Request())
             clients_collection.update_one({"_id": client["_id"]}, {"$set": {"calendar_tokens": {
-                "token": creds.token, "refresh_token": creds.refresh_token,
-                "token_uri": creds.token_uri, "client_id": creds.client_id,
-                "client_secret": creds.client_secret, "scopes": creds.scopes
+                "token": creds.token,
+                "refresh_token": creds.refresh_token,
+                "token_uri": creds.token_uri,
+                "client_id": creds.client_id,
+                "client_secret": creds.client_secret,
+                "scopes": creds.scopes
             }}})
 
     except Exception as e:
@@ -325,25 +328,28 @@ def get_week_calendar():
 
     service = build("calendar", "v3", credentials=creds)
     
-    # --- FINAL, ROBUST TIME LOGIC ---
+    # --- FINAL, SIMPLIFIED, AND AUTHORITATIVE TIME LOGIC ---
+    
     tz_local = pytz.timezone(config.get("timezone", "America/Los_Angeles"))
     
     # The server's understanding of "now". This is our non-negotiable source of truth.
     server_now = datetime.now(tz_local)
     
     # The date the user wants to start viewing from.
-    requested_start_date = datetime.fromisoformat(requested_start_str.replace("Z", "+00:00")).astimezone(tz_local).date()
+    requested_week_start = datetime.fromisoformat(requested_start_str.replace("Z", "+00:00")).astimezone(tz_local)
     
-    # The definitive start of our loop is THE LATER of today OR the requested date.
-    # This makes it impossible to start a loop in the past.
-    loop_start_date = max(requested_start_date, server_now.date())
-
     business_hours = get_business_hours(config)
     all_available_slots = {}
 
     for i in range(7):
-        day_to_check = loop_start_date + timedelta(days=i)
-        
+        # The day in the week we are currently checking
+        day_to_check = (requested_week_start.date() + timedelta(days=i))
+
+        # 1. First, completely skip any day that is in the past.
+        if day_to_check < server_now.date():
+            all_available_slots[day_to_check.isoformat()] = [] # Send back an empty list for past days
+            continue
+
         weekday_name = day_to_check.strftime("%A").lower()
         if weekday_name not in business_hours:
             continue
@@ -352,13 +358,25 @@ def get_week_calendar():
         all_available_slots[day_str] = []
 
         open_str, close_str = business_hours[weekday_name]
-        time_min = tz_local.localize(datetime.combine(day_to_check, datetime.strptime(open_str, "%H:%M").time()))
-        time_max = tz_local.localize(datetime.combine(day_to_check, datetime.strptime(close_str, "%H:%M").time()))
+        business_open_time = tz_local.localize(datetime.combine(day_to_check, datetime.strptime(open_str, "%H:%M").time()))
+        business_close_time = tz_local.localize(datetime.combine(day_to_check, datetime.strptime(close_str, "%H:%M").time()))
+        
+        # 2. Determine the correct start time for our query.
+        # If it's today, the start time is now. If it's a future day, it's the start of business hours.
+        query_start_time = server_now if day_to_check == server_now.date() else business_open_time
 
+        # Ensure our query doesn't start before the business opens for the day
+        query_start_time = max(business_open_time, query_start_time)
+
+        # Skip this day entirely if our calculated start time is already past the closing time
+        if query_start_time >= business_close_time:
+            continue
+
+        # 3. Make ONE clean API call to Google for the valid time window.
         try:
             freebusy_result = service.freebusy().query(body={
-                "timeMin": time_min.isoformat(),
-                "timeMax": time_max.isoformat(),
+                "timeMin": query_start_time.isoformat(),
+                "timeMax": business_close_time.isoformat(),
                 "items": [{"id": "primary"}],
                 "timeZone": str(tz_local)
             }).execute()
@@ -367,19 +385,18 @@ def get_week_calendar():
             logger.error(f"Error fetching free/busy for {company} on {day_to_check}: {e}")
             continue
 
-        current_slot = time_min
-        while current_slot < time_max:
-            # The only check we need now is for times in the past on the CURRENT day.
-            if current_slot < server_now:
-                current_slot += timedelta(minutes=30)
-                continue
-            
+        # 4. Generate only the valid slots and check them against the busy blocks.
+        # Round up our start time to the next 30-minute interval to ensure clean slot generation.
+        current_slot = query_start_time
+        if current_slot.minute % 30 != 0:
+            current_slot += timedelta(minutes=30 - current_slot.minute % 30)
+
+        while current_slot < business_close_time:
             is_busy = False
             for busy in busy_slots:
                 busy_start = parser.isoparse(busy['start'])
                 busy_end = parser.isoparse(busy['end'])
-                slot_end = current_slot + timedelta(minutes=30)
-                if current_slot < busy_end and slot_end > busy_start:
+                if current_slot < busy_end and (current_slot + timedelta(minutes=30)) > busy_start:
                     is_busy = True
                     break
             
@@ -387,8 +404,8 @@ def get_week_calendar():
                 all_available_slots[day_str].append(current_slot.isoformat())
 
             current_slot += timedelta(minutes=30)
-
-    return jsonify({"calendar": all_available_slots, "startDate": loop_start_date.isoformat()})
+            
+    return jsonify({"calendar": all_available_slots, "startDate": requested_week_start.date().isoformat()})
 
 @bp.route("/book", methods=["POST", "OPTIONS"])
 def book_appointment():
