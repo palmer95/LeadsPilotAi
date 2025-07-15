@@ -198,8 +198,8 @@ def reset():
     return jsonify({"message": "Sales flow and chat history reset."})
 
 
-if __name__ == '__main__':
-    # Note: Using debug=True with multiple workers is not recommended for production.
-    # The in-memory '_session_memory' will not be shared across workers.
-    # This setup is fine for local development and single-worker deployments on Render.
-    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get("PORT", 5050)))
+# if __name__ == '__main__':
+#     # Note: Using debug=True with multiple workers is not recommended for production.
+#     # The in-memory '_session_memory' will not be shared across workers.
+#     # This setup is fine for local development and single-worker deployments on Render.
+#     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get("PORT", 5050)))
