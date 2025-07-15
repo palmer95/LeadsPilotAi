@@ -283,6 +283,7 @@ def get_slots():
 @bp.route("/week", methods=["GET", "OPTIONS"])
 def get_week_calendar():
     if request.method == "OPTIONS":
+        # ... (OPTIONS handling remains the same)
         response = make_response()
         response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
@@ -290,7 +291,6 @@ def get_week_calendar():
         return response
 
     company = request.args.get("company")
-    # This is the user's desired VIEWING date, not a trusted source of the current time
     requested_start_str = request.args.get("currentTime")
 
     if not company or not requested_start_str:
@@ -302,6 +302,7 @@ def get_week_calendar():
         if not client or not client.get("calendar_tokens"):
             return jsonify({"error": "Calendar not connected"}), 404
         
+        # ... (credentials setup and refresh logic remains the same) ...
         creds = Credentials(
             token=client["calendar_tokens"]["token"],
             refresh_token=client["calendar_tokens"]["refresh_token"],
@@ -312,7 +313,6 @@ def get_week_calendar():
         )
         if creds.expired and creds.refresh_token:
             creds.refresh(Request())
-            # Save the refreshed token back to the database...
             clients_collection.update_one({"_id": client["_id"]}, {"$set": {"calendar_tokens": {
                 "token": creds.token, "refresh_token": creds.refresh_token,
                 "token_uri": creds.token_uri, "client_id": creds.client_id,
@@ -325,17 +325,18 @@ def get_week_calendar():
 
     service = build("calendar", "v3", credentials=creds)
     
-    # --- AUTHORITATIVE TIME LOGIC ---
+    # --- FINAL, ROBUST TIME LOGIC ---
     tz_local = pytz.timezone(config.get("timezone", "America/Los_Angeles"))
     
-    # The server's understanding of "now". This is our source of truth.
+    # The server's understanding of "now". This is our non-negotiable source of truth.
     server_now = datetime.now(tz_local)
     
     # The date the user wants to start viewing from.
     requested_start_date = datetime.fromisoformat(requested_start_str.replace("Z", "+00:00")).astimezone(tz_local).date()
     
-    # The loop should start from the user's requested date, but we'll use server_now for all past/future checks.
-    loop_start_date = requested_start_date
+    # The definitive start of our loop is THE LATER of today OR the requested date.
+    # This makes it impossible to start a loop in the past.
+    loop_start_date = max(requested_start_date, server_now.date())
 
     business_hours = get_business_hours(config)
     all_available_slots = {}
@@ -343,10 +344,6 @@ def get_week_calendar():
     for i in range(7):
         day_to_check = loop_start_date + timedelta(days=i)
         
-        # Security check: Never process a day that is before the server's current day.
-        if day_to_check < server_now.date():
-            continue
-
         weekday_name = day_to_check.strftime("%A").lower()
         if weekday_name not in business_hours:
             continue
@@ -372,7 +369,7 @@ def get_week_calendar():
 
         current_slot = time_min
         while current_slot < time_max:
-            # The critical check: use the authoritative server_now.
+            # The only check we need now is for times in the past on the CURRENT day.
             if current_slot < server_now:
                 current_slot += timedelta(minutes=30)
                 continue
@@ -391,7 +388,7 @@ def get_week_calendar():
 
             current_slot += timedelta(minutes=30)
 
-    return jsonify({"calendar": all_available_slots})
+    return jsonify({"calendar": all_available_slots, "startDate": loop_start_date.isoformat()})
 
 @bp.route("/book", methods=["POST", "OPTIONS"])
 def book_appointment():
