@@ -36,6 +36,13 @@ if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY is required.")
 
 app = Flask(__name__)
+
+CORS(
+    app,
+    origins=["https://www.leadspilotai.com", "http://localhost:3000"],
+    supports_credentials=True
+)
+
 # Flask App Configuration (no change)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
@@ -47,7 +54,6 @@ app.register_blueprint(calendar_bp)
 app.register_blueprint(admin_routes_bp)
 
 
-CORS(app, origins=["https://www.leadspilotai.com", "http://localhost:3000"], supports_credentials=True)
 
 # Database Setup (no change)
 MONGO_URI = os.getenv("MONGO_URI")
