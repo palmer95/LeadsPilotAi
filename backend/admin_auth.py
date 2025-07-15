@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, session, make_response
 from datetime import datetime, timezone, timedelta
+from flask_cors import cross_origin
 from werkzeug.security import generate_password_hash, check_password_hash
 import logging
 from pymongo import MongoClient
@@ -117,6 +118,7 @@ def create_response(data, status=200):
 
 
 @bp.route('/verify-token', methods=['GET', 'OPTIONS'])
+@cross_origin(supports_credentials=True) # <-- 2. Add this decorator
 def verify_token():
     if request.method == 'OPTIONS':
         response = make_response()

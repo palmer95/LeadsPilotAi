@@ -39,7 +39,7 @@ app = Flask(__name__)
 # Flask App Configuration (no change)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
-CORS(app, resources={r"/api/*": {"origins": ["https://www.leadspilotai.com", "http://localhost:3000"]}}, supports_credentials=True)
+CORS(app, origins=["https://www.leadspilotai.com", "http://localhost:3000"], supports_credentials=True)
 
 # Database Setup (no change)
 MONGO_URI = os.getenv("MONGO_URI")
