@@ -290,103 +290,108 @@ def get_week_calendar():
         return response
 
     company = request.args.get("company")
-    current_time_str = request.args.get("currentTime")  # New parameter for current timestamp
+    # This is the user's desired VIEWING date, not a trusted source of the current time
+    requested_start_str = request.args.get("currentTime")
 
-    if not company or not current_time_str:
+    if not company or not requested_start_str:
         return jsonify({"error": "Missing 'company' or 'currentTime' param"}), 400
 
     try:
         config = get_config(company)
-    except Exception as e:
-        logger.error(f"Failed to load config for {company}: {e}")
-        return jsonify({"error": "Failed to load business config"}), 500
-
-    business_hours = get_business_hours(config)
-    tz_local = pytz.timezone("America/Los_Angeles")
-    current_time = datetime.fromisoformat(current_time_str.replace("Z", "+00:00")).astimezone(tz_local)  # Convert to PDT
-    today = current_time.date()
-
-    client = clients_collection.find_one({"slug": company})
-    if not client or not client.get("calendar_tokens"):
-        return jsonify({"error": "Calendar not connected"}), 404
-
-    creds = Credentials(
-        token=client["calendar_tokens"]["token"],
-        refresh_token=client["calendar_tokens"]["refresh_token"],
-        token_uri=client["calendar_tokens"]["token_uri"],
-        client_id=client["calendar_tokens"]["client_id"],
-        client_secret=client["calendar_tokens"]["client_secret"],
-        scopes=client["calendar_tokens"]["scopes"]
-    )
-    if creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        clients_collection.update_one(
-            {"_id": client["_id"]},
-            {"$set": {"calendar_tokens": {
-                "token": creds.token,
-                "refresh_token": creds.refresh_token,
-                "token_uri": creds.token_uri,
-                "client_id": creds.client_id,
-                "client_secret": creds.client_secret,
-                "scopes": creds.scopes
-            }}}
+        client = clients_collection.find_one({"slug": company})
+        if not client or not client.get("calendar_tokens"):
+            return jsonify({"error": "Calendar not connected"}), 404
+        
+        creds = Credentials(
+            token=client["calendar_tokens"]["token"],
+            refresh_token=client["calendar_tokens"]["refresh_token"],
+            token_uri=client["calendar_tokens"]["token_uri"],
+            client_id=client["calendar_tokens"]["client_id"],
+            client_secret=client["calendar_tokens"]["client_secret"],
+            scopes=client["calendar_tokens"]["scopes"]
         )
+        if creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+            # Save the refreshed token back to the database...
+            clients_collection.update_one({"_id": client["_id"]}, {"$set": {"calendar_tokens": {
+                "token": creds.token, "refresh_token": creds.refresh_token,
+                "token_uri": creds.token_uri, "client_id": creds.client_id,
+                "client_secret": creds.client_secret, "scopes": creds.scopes
+            }}})
+
+    except Exception as e:
+        logger.error(f"Error during setup for {company}: {e}")
+        return jsonify({"error": "Failed to load business config or calendar credentials"}), 500
 
     service = build("calendar", "v3", credentials=creds)
+    
+    # --- AUTHORITATIVE TIME LOGIC ---
+    tz_local = pytz.timezone(config.get("timezone", "America/Los_Angeles"))
+    
+    # The server's understanding of "now". This is our source of truth.
+    server_now = datetime.now(tz_local)
+    
+    # The date the user wants to start viewing from.
+    requested_start_date = datetime.fromisoformat(requested_start_str.replace("Z", "+00:00")).astimezone(tz_local).date()
+    
+    # The loop should start from the user's requested date, but we'll use server_now for all past/future checks.
+    loop_start_date = requested_start_date
 
-    available_slots = []
-    days_to_check = 14 # Let's give users two weeks to look forward
-    tz_local = pytz.timezone("America/Los_Angeles") # Make sure this is defined
-    now_in_tz = datetime.now(tz_local)
+    business_hours = get_business_hours(config)
+    all_available_slots = {}
 
-    # Start from the date of the currentTime sent from the frontend
-    start_date = datetime.fromisoformat(current_time_str.replace("Z", "+00:00")).astimezone(tz_local).date()
+    for i in range(7):
+        day_to_check = loop_start_date + timedelta(days=i)
+        
+        # Security check: Never process a day that is before the server's current day.
+        if day_to_check < server_now.date():
+            continue
 
-    for i in range(days_to_check):
-        day = start_date + timedelta(days=i)
-        weekday_name = day.strftime("%A").lower()
-
+        weekday_name = day_to_check.strftime("%A").lower()
         if weekday_name not in business_hours:
             continue
 
+        day_str = day_to_check.isoformat()
+        all_available_slots[day_str] = []
+
         open_str, close_str = business_hours[weekday_name]
-        # Combine date with time strings and make them timezone-aware
-        open_dt = tz_local.localize(datetime.combine(day, datetime.strptime(open_str, "%H:%M").time()))
-        close_dt = tz_local.localize(datetime.combine(day, datetime.strptime(close_str, "%H:%M").time()))
-        
-        current_slot_start = open_dt
+        time_min = tz_local.localize(datetime.combine(day_to_check, datetime.strptime(open_str, "%H:%M").time()))
+        time_max = tz_local.localize(datetime.combine(day_to_check, datetime.strptime(close_str, "%H:%M").time()))
 
-        while current_slot_start < close_dt:
-            # ---- THIS IS THE KEY LOGIC CHANGE ----
-            # 1. Skip any slot that starts in the past.
-            if current_slot_start < now_in_tz:
-                current_slot_start += timedelta(minutes=30)
-                continue # Move to the next potential slot
-
-            # 2. Check if this future slot is free
-            start_time_utc = current_slot_start.isoformat()
-            end_time_utc = (current_slot_start + timedelta(minutes=30)).isoformat()
-            
-            freebusy = service.freebusy().query(body={
-                "timeMin": start_time_utc,
-                "timeMax": end_time_utc,
-                "items": [{"id": "primary"}]
+        try:
+            freebusy_result = service.freebusy().query(body={
+                "timeMin": time_min.isoformat(),
+                "timeMax": time_max.isoformat(),
+                "items": [{"id": "primary"}],
+                "timeZone": str(tz_local)
             }).execute()
+            busy_slots = freebusy_result["calendars"]["primary"].get("busy", [])
+        except Exception as e:
+            logger.error(f"Error fetching free/busy for {company} on {day_to_check}: {e}")
+            continue
 
-            if not freebusy["calendars"]["primary"].get("busy", []):
-                available_slots.append(current_slot_start.isoformat())
-                
-            current_slot_start += timedelta(minutes=30)
-    # Group by date for the response, limit to 12 per day
-    calendar = {}
-    for slot in available_slots:
-        date = slot.split("T")[0]
-        if date not in calendar:
-            calendar[date] = []
-        if len(calendar[date]) < 12:
-            calendar[date].append(slot)
+        current_slot = time_min
+        while current_slot < time_max:
+            # The critical check: use the authoritative server_now.
+            if current_slot < server_now:
+                current_slot += timedelta(minutes=30)
+                continue
+            
+            is_busy = False
+            for busy in busy_slots:
+                busy_start = parser.isoparse(busy['start'])
+                busy_end = parser.isoparse(busy['end'])
+                slot_end = current_slot + timedelta(minutes=30)
+                if current_slot < busy_end and slot_end > busy_start:
+                    is_busy = True
+                    break
+            
+            if not is_busy:
+                all_available_slots[day_str].append(current_slot.isoformat())
 
-    return jsonify({"calendar": calendar, "startDate": today.isoformat()})
+            current_slot += timedelta(minutes=30)
+
+    return jsonify({"calendar": all_available_slots})
 
 @bp.route("/book", methods=["POST", "OPTIONS"])
 def book_appointment():
