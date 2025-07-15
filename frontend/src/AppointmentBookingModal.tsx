@@ -303,7 +303,7 @@ const AppointmentBookingModal: React.FC<AppointmentBookingModalProps> = ({
     date.setDate(currentWeekStart.getDate() + i);
     return date.toISOString().split("T")[0];
   });
-  const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const toggleShowAll = (date: string) =>
     setShowAllSlots((prev) => ({ ...prev, [date]: !prev[date] }));
   const getMaxSlots = (date: string) =>
