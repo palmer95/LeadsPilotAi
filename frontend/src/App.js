@@ -175,7 +175,6 @@ export default function App({ company, configUrl }) {
           </div>
         )}
 
-        {/* Always show Book Appointment button */}
         {messages.length === 1 && (
           <>
             <div className="faq-divider">Options:</div>
