@@ -1,6 +1,5 @@
 from flask import Blueprint, request, jsonify, session, make_response
 from datetime import datetime, timezone, timedelta
-from flask_cors import cross_origin
 from werkzeug.security import generate_password_hash, check_password_hash
 import logging
 from pymongo import MongoClient

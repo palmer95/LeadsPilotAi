@@ -30,7 +30,8 @@ google-api-python-client==2.111.0
 google-auth-oauthlib==1.2.2
 google-auth==2.40.1
 google-api-core==2.25.1
-googleapis-common-protos==1.70.1
+googleapis-common-protos>=1.70.0
+
 
 # Core Dependencies (Required by the above libraries)
 aiohttp==3.11.16
