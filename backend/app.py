@@ -40,30 +40,38 @@ db = client['leadsPilotAI']
 
 # --- The Definitive CORS Solution ---
 
-def get_allowed_origins(origin, **kwargs):
-    """
-    Dynamically determine if an origin is allowed by checking the database.
-    """
-    # 1. Always allow your own trusted sites for development and your own app.
-    trusted_origins = [
-        "https://www.leadspilotai.com",
-        "http://localhost:3000"
-    ]
-    if origin in trusted_origins:
-        return origin
+# --- The Definitive CORS Solution ---
+# These are your own domains that should always be allowed
+TRUSTED_ORIGINS = [
+    "https://www.leadspilotai.com",
+    "http://localhost:3000"
+]
 
-    # 2. If it's not your own site, check if it belongs to an active client.
-    client_doc = db['clients'].find_one({"domain": origin})
-    if client_doc:
-        return origin # The origin is allowed
+@app.after_request
+def after_request(response):
+    # Get the origin of the incoming request
+    origin = request.headers.get('Origin')
     
-    # 3. If not found in either list, deny the request.
-    return None
+    # 1. Dynamically check if the origin is trusted or in the client DB
+    if origin in TRUSTED_ORIGINS:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+    else:
+        client_doc = db['clients'].find_one({"domain": origin})
+        if client_doc:
+            response.headers.add('Access-Control-Allow-Origin', origin)
+    
+    # These headers are needed for both the actual request and preflight
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
 
-# Initialize CORS on the app using our dynamic function.
-# This is the single source of truth for your CORS policy.
-CORS(app, origins=get_allowed_origins, supports_credentials=True)
-
+# 2. Add a dedicated, simple handler for all OPTIONS preflight requests
+@app.route('/api/<path:path>', methods=['OPTIONS'])
+def handle_options(path):
+    # This function's only job is to send back a successful response for the preflight check.
+    # The @after_request function above will add the necessary CORS headers.
+    return '', 200
 # --- Other App Configurations ---
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
