@@ -3,7 +3,7 @@ import os
 import json
 import requests
 from flask import Flask, request, jsonify, redirect
-from flask_cors import CORS
+#from flask_cors import CORS
 from dotenv import load_dotenv
 import logging
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
@@ -37,11 +37,32 @@ if not OPENAI_API_KEY:
 
 app = Flask(__name__)
 
-CORS(
-    app,
-    origins=["https://www.leadspilotai.com", "http://localhost:3000"],
-    supports_credentials=True
-)
+TRUSTED_ORIGINS = [
+    "https://www.leadspilotai.com",
+    "http://localhost:3000"
+]
+
+@app.after_request
+def after_request(response):
+    # Get the origin of the incoming request
+    origin = request.headers.get('Origin')
+    
+    # Check if the origin is one of your trusted sites
+    if origin in TRUSTED_ORIGINS:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+    else:
+        # If not, check if the origin belongs to an active client in the database
+        clients_collection = db['clients']
+        client = clients_collection.find_one({"website_url": origin})
+        if client:
+            response.headers.add('Access-Control-Allow-Origin', origin)
+            
+    # These headers are needed for the browser's preflight requests
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
+
 
 # Flask App Configuration (no change)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
