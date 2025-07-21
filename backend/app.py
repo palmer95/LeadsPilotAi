@@ -123,6 +123,11 @@ def get_vectorstore(company: str) -> FAISS:
             raise
     return _vectorstore_cache[company]
 
+@app.route('/api/version', methods=['GET'])
+def get_version():
+    """A simple endpoint to confirm which code version is live."""
+    return jsonify({"version": "2.1", "message": "The chat route is definitely here."})
+
 ### --- CORE LOGIC REFACTORED --- ###
 
 @app.route('/api/chat', methods=['POST'])
