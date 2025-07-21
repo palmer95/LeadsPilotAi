@@ -53,7 +53,7 @@ def after_request(response):
     else:
         # If not, check if the origin belongs to an active client in the database
         clients_collection = db['clients']
-        client = clients_collection.find_one({"website_url": origin})
+        client = clients_collection.find_one({"domain": origin})
         if client:
             response.headers.add('Access-Control-Allow-Origin', origin)
             
