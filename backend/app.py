@@ -128,6 +128,18 @@ def get_version():
     """A simple endpoint to confirm which code version is live."""
     return jsonify({"version": "2.1", "message": "The chat route is definitely here."})
 
+@app.route('/api/debug-routes')
+def debug_routes():
+    """An endpoint to list all registered routes."""
+    routes = []
+    for rule in app.url_map.iter_rules():
+        routes.append({
+            "endpoint": rule.endpoint,
+            "methods": sorted(list(rule.methods)),
+            "rule": str(rule)
+        })
+    return jsonify(routes)
+
 ### --- CORE LOGIC REFACTORED --- ###
 
 @app.route('/api/chat', methods=['POST'])
