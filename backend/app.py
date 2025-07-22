@@ -28,6 +28,7 @@ def after_request(response):
     
     trusted_origins = [
         "https://www.leadspilotai.com",
+        "https://virtourmedia.com",
         "http://localhost:3000"
     ]
 
