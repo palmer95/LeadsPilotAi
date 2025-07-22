@@ -4,13 +4,43 @@ from langchain.memory import ConversationBufferMemory
 from datetime import datetime
 import sales_agent
 import os
+import requests 
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
 
-# Important: We need to import the shared objects from your main app.py
-# This requires a small change in app.py (see next step).
-from app import llm, get_vectorstore, get_config, _session_memory, conversations_collection
+# 1. Import all shared resources from our core.py file
+from core import llm, _session_memory, _vectorstore_cache, _config_cache, db, conversations_collection
 
 bp = Blueprint('api_routes', __name__, url_prefix='/api')
 
+# --- Helper functions ---
+CONFIG_BASE_URL = os.getenv("CONFIG_BASE_URL", "https://www.leadspilotai.com")
+
+def get_config(company: str) -> dict:
+    if company not in _config_cache:
+        url = f"{CONFIG_BASE_URL}/client-configs/{company}.json"
+        try:
+            resp = requests.get(url, timeout=5)
+            resp.raise_for_status()
+            config = resp.json()
+            config['slug'] = company
+            _config_cache[company] = config
+        except requests.RequestException as e:
+            raise FileNotFoundError(f"Could not fetch config: {url} -> {e}")
+    return _config_cache[company]
+
+def get_vectorstore(company: str) -> FAISS:
+    if company not in _vectorstore_cache:
+        dirpath = os.path.join(os.path.dirname(__file__), "vectorstores", f"{company}_vectorstore")
+        if not os.path.isdir(dirpath):
+            raise FileNotFoundError(f"Vectorstore not found: {dirpath}")
+        _vectorstore_cache[company] = FAISS.load_local(
+            dirpath, OpenAIEmbeddings(), allow_dangerous_deserialization=True
+        )
+    return _vectorstore_cache[company]
+
+# The route decorator should just be '/chat', not '/api/chat', 
+# because the '/api' prefix is already defined in the Blueprint.
 @bp.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json(force=True)
@@ -41,7 +71,6 @@ def chat():
     user_input = query.lower()
     qa_chain = ConversationalRetrievalChain.from_llm(llm=llm, retriever=vs.as_retriever(search_kwargs={"k": 3}), memory=memory)
 
-    # This is the full, correct agent logic from your app.py
     if sales_agent.is_pricing_inquiry(user_input) and current_sales_state['state'] in ['idle', 'excited']:
         response_data, new_sales_state = sales_agent.handle_pricing_inquiry(CONFIG, current_sales_state)
     elif sales_agent.is_sales_trigger(user_input, CONFIG) and current_sales_state['state'] in ['idle', 'excited']:
@@ -60,6 +89,8 @@ def chat():
             new_sales_state = current_sales_state.copy()
             new_sales_state["last_mentioned_package"] = pkg
         response_data = {"response": response_text}
+        
+        # This will now work because conversations_collection is imported
         conversations_collection.update_one(
             {"session_id": session_id, "company": company},
             {"$push": {"messages": {"timestamp": datetime.utcnow(), "user": user_input, "bot": response_text}}},
@@ -69,6 +100,7 @@ def chat():
     _session_memory[sales_state_key] = new_sales_state
     
     return jsonify(response_data)
+
 
 @bp.route('/reset', methods=['POST'])
 def reset():
@@ -84,5 +116,4 @@ def reset():
     if sales_state_key in _session_memory:
         del _session_memory[sales_state_key]
         
-    # logger.info(...) # Note: logger is not imported here, but you can pass it from app.py if needed
     return jsonify({"message": "Session reset."})
