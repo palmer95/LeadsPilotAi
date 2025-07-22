@@ -1,3 +1,5 @@
+# api_routes.py (Final Version)
+
 from flask import Blueprint, request, jsonify
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
@@ -8,12 +10,13 @@ import requests
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
-# 1. Import all shared resources from our core.py file
-from core import llm, _session_memory, _vectorstore_cache, _config_cache, db, conversations_collection
+# Import shared resources from our core.py file
+from core import llm, _session_memory, _vectorstore_cache, _config_cache, conversations_collection
 
+# The Blueprint is defined with the /api prefix, so routes are relative to that.
 bp = Blueprint('api_routes', __name__, url_prefix='/api')
 
-# --- Helper functions ---
+# --- Helper functions that are specific to this API's logic ---
 CONFIG_BASE_URL = os.getenv("CONFIG_BASE_URL", "https://www.leadspilotai.com")
 
 def get_config(company: str) -> dict:
@@ -39,8 +42,7 @@ def get_vectorstore(company: str) -> FAISS:
         )
     return _vectorstore_cache[company]
 
-# The route decorator should just be '/chat', not '/api/chat', 
-# because the '/api' prefix is already defined in the Blueprint.
+
 @bp.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json(force=True)
@@ -71,6 +73,7 @@ def chat():
     user_input = query.lower()
     qa_chain = ConversationalRetrievalChain.from_llm(llm=llm, retriever=vs.as_retriever(search_kwargs={"k": 3}), memory=memory)
 
+    # Full agent logic
     if sales_agent.is_pricing_inquiry(user_input) and current_sales_state['state'] in ['idle', 'excited']:
         response_data, new_sales_state = sales_agent.handle_pricing_inquiry(CONFIG, current_sales_state)
     elif sales_agent.is_sales_trigger(user_input, CONFIG) and current_sales_state['state'] in ['idle', 'excited']:
@@ -89,8 +92,6 @@ def chat():
             new_sales_state = current_sales_state.copy()
             new_sales_state["last_mentioned_package"] = pkg
         response_data = {"response": response_text}
-        
-        # This will now work because conversations_collection is imported
         conversations_collection.update_one(
             {"session_id": session_id, "company": company},
             {"$push": {"messages": {"timestamp": datetime.utcnow(), "user": user_input, "bot": response_text}}},
