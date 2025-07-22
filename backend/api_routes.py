@@ -9,9 +9,11 @@ import os
 import requests 
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
+from langchain.retrievers import MergerRetriever
+from langchain.docstore.document import Document
 
 # Import shared resources from our core.py file
-from core import llm, _session_memory, _vectorstore_cache, _config_cache, conversations_collection
+from core import llm, _session_memory, _vectorstore_cache, _config_cache, conversations_collection, db
 
 # The Blueprint is defined with the /api prefix, so routes are relative to that.
 bp = Blueprint('api_routes', __name__, url_prefix='/api')
@@ -59,21 +61,46 @@ def chat():
     except FileNotFoundError as e:
         return jsonify({"error": str(e)}), 404
 
+    # --- STATE MANAGEMENT (No changes) ---
     chat_memory_key = f"chat_history:{company}:{session_id}"
     sales_state_key = f"sales_state:{company}:{session_id}"
-
     if chat_memory_key not in _session_memory:
         _session_memory[chat_memory_key] = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
     memory = _session_memory[chat_memory_key]
-
     current_sales_state = _session_memory.get(sales_state_key, sales_agent.get_initial_state())
     
+    # --- AI LOGIC UPGRADE ---
+    # 1. Fetch the high-priority custom training data from the new collection
+    custom_training_data = list(db['custom_training'].find({"client_slug": company}))
+    
+    retriever = vs.as_retriever(search_kwargs={"k": 3}) # Default retriever
+    
+    # 2. If custom data exists, create a smarter, layered retriever
+    if custom_training_data:
+        custom_docs = [Document(page_content=item['answer'], metadata={'source': item['question']}) for item in custom_training_data]
+        
+        # 3. Create a small, temporary vector store JUST for this high-priority data
+        priority_vs = FAISS.from_documents(custom_docs, OpenAIEmbeddings())
+        priority_retriever = priority_vs.as_retriever(search_kwargs={"k": 1})
+        
+        # 4. The MergerRetriever searches the priority store FIRST, then the main store.
+        # This ensures custom answers are always ranked highest.
+        retriever = MergerRetriever(retrievers=[priority_retriever, retriever])
+        
+    # 5. Build the QA chain with our new, smarter retriever
+    qa_chain = ConversationalRetrievalChain.from_llm(
+        llm=llm,
+        retriever=retriever,
+        memory=memory
+    )
+    # --- END OF AI LOGIC UPGRADE ---
+
+    # Initialize variables for the response
     response_data = {}
     new_sales_state = current_sales_state
     user_input = query.lower()
-    qa_chain = ConversationalRetrievalChain.from_llm(llm=llm, retriever=vs.as_retriever(search_kwargs={"k": 3}), memory=memory)
 
-    # Full agent logic
+    # --- SALES FLOW LOGIC (No changes) ---
     if sales_agent.is_pricing_inquiry(user_input) and current_sales_state['state'] in ['idle', 'excited']:
         response_data, new_sales_state = sales_agent.handle_pricing_inquiry(CONFIG, current_sales_state)
     elif sales_agent.is_sales_trigger(user_input, CONFIG) and current_sales_state['state'] in ['idle', 'excited']:
@@ -85,23 +112,30 @@ def chat():
             qa_response_text = qa_result.get("answer", "").strip()
             response_data, new_sales_state = sales_agent.continue_sales_flow(user_input, CONFIG, new_sales_state, qa_response=qa_response_text)
     else:
+        # This is the normal QA query
         result = qa_chain.invoke({"question": user_input})
         response_text = result.get("answer", "").strip()
+        
         pkg = sales_agent.extract_package(response_text, CONFIG, current_sales_state)
         if pkg:
             new_sales_state = current_sales_state.copy()
             new_sales_state["last_mentioned_package"] = pkg
+        
         response_data = {"response": response_text}
-        conversations_collection.update_one(
-            {"session_id": session_id, "company": company},
-            {"$push": {"messages": {"timestamp": datetime.utcnow(), "user": user_input, "bot": response_text}}},
-            upsert=True
-        )
+    
+    # --- SAVE CONVERSATION TO MONGODB ---
+    # This logic now runs for ALL conversation turns
+    response_text_to_save = response_data.get("response", "No response generated.")
+    conversations_collection.update_one(
+        {"session_id": session_id, "company": company},
+        {"$push": {"messages": {"timestamp": datetime.utcnow(), "user": query, "bot": response_text_to_save}}},
+        upsert=True
+    )
 
+    # --- SAVE SESSION STATE (No changes) ---
     _session_memory[sales_state_key] = new_sales_state
     
     return jsonify(response_data)
-
 
 @bp.route('/reset', methods=['POST'])
 def reset():

@@ -5,8 +5,6 @@ from flask import Flask, request, jsonify, make_response
 from dotenv import load_dotenv
 from pymongo import MongoClient
 import logging
-
-# --- All necessary imports for your app ---
 from werkzeug.middleware.proxy_fix import ProxyFix
 # (Add other necessary imports like langchain, etc. as needed by your blueprints)
 
@@ -61,19 +59,17 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
 
-# --- Import and Register ALL Blueprints ---
-# We are now assuming all your logic lives in these blueprints
+# --- Blueprints ---
 from onboard import bp as onboard_bp
 from admin_auth import bp as admin_auth_bp
 from admin_calendar import bp as calendar_bp
 from admin_routes import bp as admin_routes_bp
 from api_routes import bp as api_bp
+from training_routes import bp as training_bp
 
 app.register_blueprint(onboard_bp)
 app.register_blueprint(admin_auth_bp)
 app.register_blueprint(calendar_bp)
 app.register_blueprint(admin_routes_bp)
 app.register_blueprint(api_bp)
-
-# IMPORTANT: Ensure your core.py, api_routes.py, etc., are structured as we discussed.
-# This app.py file is now ONLY for configuration and setup.
+app.register_blueprint(training_bp)
