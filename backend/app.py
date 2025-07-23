@@ -66,6 +66,7 @@ from admin_calendar import bp as calendar_bp
 from admin_routes import bp as admin_routes_bp
 from api_routes import bp as api_bp
 from training_routes import bp as training_bp
+from analytics_routes import bp as analytics_bp
 
 app.register_blueprint(onboard_bp)
 app.register_blueprint(admin_auth_bp)
@@ -73,3 +74,4 @@ app.register_blueprint(calendar_bp)
 app.register_blueprint(admin_routes_bp)
 app.register_blueprint(api_bp)
 app.register_blueprint(training_bp)
+app.register_blueprint(analytics_bp)
