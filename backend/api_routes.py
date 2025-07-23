@@ -132,6 +132,15 @@ def chat():
         upsert=True
     )
 
+    response_text_to_save = response_data.get("response", "No response generated.")
+    conversations_collection.update_one(
+        {"session_id": session_id, "company": company},
+        {"$push": {"messages": {"timestamp": datetime.utcnow(), "user": query, "bot": response_text_to_save}}},
+        upsert=True
+    )
+
+
+
     # --- SAVE SESSION STATE (No changes) ---
     _session_memory[sales_state_key] = new_sales_state
     
