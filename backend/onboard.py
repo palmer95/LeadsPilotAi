@@ -81,7 +81,8 @@ def onboard():
         "faqs": [],  # Will populate later
         "workflows": [],  # Will populate later
         "leads": [],  # Will populate later
-        "users": []  # Will populate later
+        "users": [],  # Will populate later
+        "services": [] # will populate later
     }
 
     client = clients_collection.insert_one(client_doc)
