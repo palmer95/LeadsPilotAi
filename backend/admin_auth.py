@@ -3,6 +3,7 @@ from datetime import datetime, timezone, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 import logging
 from pymongo import MongoClient
+import certifi
 import os
 from dotenv import load_dotenv
 import jwt
@@ -11,7 +12,7 @@ load_dotenv()
 
 # MongoDB setup
 mongo_uri = os.getenv('MONGO_URI')
-client = MongoClient(mongo_uri)
+client = MongoClient(mongo_uri, tlsCAFile=certifi.where())
 db = client['leadsPilotAI']
 
 # MongoDB Collection

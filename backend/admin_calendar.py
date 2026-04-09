@@ -10,6 +10,7 @@ from dateutil import parser
 from pytz import timezone as pytz_timezone
 from config_utils import get_config
 from pymongo import MongoClient
+import certifi
 from bson import ObjectId
 from dotenv import load_dotenv
 import logging
@@ -40,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 # MongoDB setup
 mongo_uri = os.getenv('MONGO_URI')
-client = MongoClient(mongo_uri)
+client = MongoClient(mongo_uri, tlsCAFile=certifi.where())
 db = client['leadsPilotAI']
 
 # MongoDB Collections

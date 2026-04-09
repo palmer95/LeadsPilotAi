@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from email.message import EmailMessage
 from flask import Blueprint, request, jsonify
 from pymongo import MongoClient
+import certifi
 from bson import ObjectId
 from dotenv import load_dotenv
 
@@ -12,7 +13,7 @@ load_dotenv()
 
 # MongoDB setup
 mongo_uri = os.getenv('MONGO_URI')
-client = MongoClient(mongo_uri)
+client = MongoClient(mongo_uri, tlsCAFile=certifi.where())
 db = client['leadsPilotAI']
 
 clients_collection = db.clients

@@ -1,4 +1,5 @@
 import os
+import certifi
 from pymongo import MongoClient
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
@@ -7,7 +8,7 @@ load_dotenv()
 
 # Initialize core services to be shared
 MONGO_URI = os.getenv("MONGO_URI")
-client = MongoClient(MONGO_URI)
+client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
 db = client['leadsPilotAI']
 
 #collections

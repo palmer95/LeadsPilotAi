@@ -1,4 +1,5 @@
 from pymongo import MongoClient
+import certifi
 import os
 from dotenv import load_dotenv
 
@@ -8,7 +9,7 @@ load_dotenv()
 mongo_uri = os.getenv('MONGO_URI')
 
 # Connect to MongoDB
-client = MongoClient(mongo_uri)
+client = MongoClient(mongo_uri, tlsCAFile=certifi.where())
 db = client['leadsPilotAI']  # Use your database name
 
 # Collections

@@ -4,6 +4,7 @@ import os
 from flask import Flask, request, jsonify, make_response
 from dotenv import load_dotenv
 from pymongo import MongoClient
+import certifi
 import logging
 from werkzeug.middleware.proxy_fix import ProxyFix
 # (Add other necessary imports like langchain, etc. as needed by your blueprints)
@@ -16,7 +17,7 @@ load_dotenv()
 # --- App & DB Initialization ---
 app = Flask(__name__)
 MONGO_URI = os.getenv("MONGO_URI")
-client = MongoClient(MONGO_URI)
+client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
 db = client['leadsPilotAI']
 
 # --- THE FINAL CORS SOLUTION (MANUAL & EXPLICIT) ---
