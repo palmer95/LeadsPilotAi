@@ -73,7 +73,7 @@ def oauth_start():
         return create_response({"error": "Missing token"}, 401)
 
     try:
-        payload = jwt.decode(token, os.getenv('FLASK_SECRET_KEY'), algorithms=['HS256'], options={"verify_exp": False})  # Temporary for testing
+        payload = jwt.decode(token, os.getenv('FLASK_SECRET_KEY'), algorithms=['HS256'])
         admin_user_id = payload.get('admin_user_id')
         if not admin_user_id:
             logger.error("No admin_user_id in token payload")

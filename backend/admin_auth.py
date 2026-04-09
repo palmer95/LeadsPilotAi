@@ -38,7 +38,11 @@ def login_with_token():
 
     # Find user by token
     logger.info(f"querying admin collection: {admin_users_collection}")
-    user = admin_users_collection.find_one({"invite_token": token})
+    try:
+        user = admin_users_collection.find_one({"invite_token": token})
+    except Exception as e:
+        logger.error(f"Database error during login-with-token: {e}")
+        return jsonify({"error": "Service temporarily unavailable"}), 503
     logger.info(f"Found user: {user}")
     if not user:
         return jsonify({"error": "Invalid invite token"}), 401
@@ -85,12 +89,15 @@ def login():
     email = data.get("email")
     password = data.get("password")
 
-    logger.info(f"email: {email} password{password}")
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
 
     # Find user by email
-    user = admin_users_collection.find_one({"email": email})
+    try:
+        user = admin_users_collection.find_one({"email": email})
+    except Exception as e:
+        logger.error(f"Database error during login: {e}")
+        return jsonify({"error": "Service temporarily unavailable"}), 503
 
     if not user or not check_password_hash(user['password_hash'], password):
         return jsonify({"error": "Invalid email or password"}), 401

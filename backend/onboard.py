@@ -62,6 +62,10 @@ This invite expires on {expiry}.
 
 @bp.route('/onboard', methods=['POST'])
 def onboard():
+    api_key = request.headers.get('X-Api-Key')
+    if not api_key or api_key != os.getenv('ONBOARD_API_KEY'):
+        return jsonify({'error': 'Unauthorized'}), 401
+
     data        = request.get_json() or {}
     name        = data.get('client_name')
     slug        = data.get('client_slug')

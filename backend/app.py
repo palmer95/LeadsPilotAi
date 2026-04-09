@@ -17,7 +17,7 @@ load_dotenv()
 # --- App & DB Initialization ---
 app = Flask(__name__)
 MONGO_URI = os.getenv("MONGO_URI")
-client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
+client = MongoClient(MONGO_URI, tlsCAFile=certifi.where(), serverSelectionTimeoutMS=3000)
 db = client['leadsPilotAI']
 
 # --- THE FINAL CORS SOLUTION (MANUAL & EXPLICIT) ---
