@@ -12,7 +12,7 @@ load_dotenv()
 
 
 # CHANGE PER CLIENT
-slug = os.getenv("COMPANY_SLUG", "leadspilotai")
+slug = os.getenv("COMPANY_SLUG", "virtour")
 faq_path = os.path.join("clients", "faqs", f"{slug}.json")
 
 # ───────────────────────────────────────────────────────────────
@@ -21,9 +21,11 @@ faq_path = os.path.join("clients", "faqs", f"{slug}.json")
 
 # CHANGE PER CLIENT
 urls = [
-    "https://www.leadspilotai.com/",
-    "https://www.leadspilotai.com/product",
-    "https://www.leadspilotai.com/pricing",
+    "https://virtourmedia.com/",
+    "https://virtourmedia.com/how-it-works/",
+    "https://virtourmedia.com/services/",
+    "https://virtourmedia.com/industries/",
+    "https://agent.virtourmedia.com/order",    
 ]
 all_blocks = []
 for url in urls:

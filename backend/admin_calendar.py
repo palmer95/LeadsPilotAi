@@ -168,7 +168,9 @@ def oauth_callback():
         logger.info(f"Successfully retrieved Google Calendar credentials: {creds.token[:10]}...")  # Log token start
     except Exception as e:
         logger.error(f"Error in fetching Google token: {e}")
-        return jsonify({"error": "Error in OAuth callback."}), 500
+        if "Scope has changed" in str(e):
+            return redirect("https://www.leadspilotai.com/admin?error=calendar_scope_denied")
+        return redirect("https://www.leadspilotai.com/admin?error=calendar_auth_failed")
 
     # Debug: Log credentials to verify successful authentication
     logger.info(f"Google credentials: {creds}")
