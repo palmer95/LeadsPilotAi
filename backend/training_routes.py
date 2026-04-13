@@ -65,6 +65,32 @@ def add_training_data():
     
     return jsonify(new_entry), 201
 
+@bp.route('/upload', methods=['POST'])
+def upload_training_data():
+    client_slug, error = get_client_slug_from_token()
+    if error:
+        return error
+
+    data = request.get_json()
+    if not isinstance(data, list) or len(data) == 0:
+        return jsonify({"error": "Expected a non-empty JSON array"}), 400
+
+    entries = []
+    for i, item in enumerate(data):
+        question = item.get('question', '').strip()
+        answer = item.get('answer', '').strip()
+        if not question or not answer:
+            return jsonify({"error": f"Item at index {i} is missing 'question' or 'answer'"}), 400
+        entries.append({"client_slug": client_slug, "question": question, "answer": answer})
+
+    result = training_collection.insert_many(entries)
+    inserted = list(training_collection.find({"_id": {"$in": result.inserted_ids}}))
+    for item in inserted:
+        item['_id'] = str(item['_id'])
+
+    return jsonify({"inserted": len(inserted), "items": inserted}), 201
+
+
 @bp.route('/<item_id>', methods=['DELETE'])
 def delete_training_data(item_id):
     client_slug, error = get_client_slug_from_token()
