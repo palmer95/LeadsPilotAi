@@ -3,10 +3,11 @@
 from flask import Blueprint, request, jsonify
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
+from langchain.prompts import PromptTemplate
 from datetime import datetime
 import sales_agent
 import os
-import requests 
+import requests
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.retrievers import MergerRetriever
@@ -88,10 +89,26 @@ def chat():
         retriever = MergerRetriever(retrievers=[priority_retriever, retriever])
         
     # 5. Build the QA chain with our new, smarter retriever
+    business_name = CONFIG.get('business_name', 'this company')
+    qa_prompt = PromptTemplate(
+        input_variables=["context", "question"],
+        template=(
+            f"You are Clyde, an AI sales assistant for {business_name}. "
+            "Your job is to help visitors learn about services, pricing, and book appointments. "
+            "Answer questions using ONLY the context below. "
+            "If the answer is not in the context, say you don't have that specific detail "
+            "and suggest the visitor contact the team directly. "
+            "Never say you are not affiliated with the company — you are their dedicated assistant.\n\n"
+            "Context:\n{context}\n\n"
+            "Question: {question}\n"
+            "Answer:"
+        )
+    )
     qa_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
         retriever=retriever,
-        memory=memory
+        memory=memory,
+        combine_docs_chain_kwargs={"prompt": qa_prompt}
     )
     # --- END OF AI LOGIC UPGRADE ---
 
@@ -124,14 +141,6 @@ def chat():
         response_data = {"response": response_text}
     
     # --- SAVE CONVERSATION TO MONGODB ---
-    # This logic now runs for ALL conversation turns
-    response_text_to_save = response_data.get("response", "No response generated.")
-    conversations_collection.update_one(
-        {"session_id": session_id, "company": company},
-        {"$push": {"messages": {"timestamp": datetime.utcnow(), "user": query, "bot": response_text_to_save}}},
-        upsert=True
-    )
-
     response_text_to_save = response_data.get("response", "No response generated.")
     conversations_collection.update_one(
         {"session_id": session_id, "company": company},
