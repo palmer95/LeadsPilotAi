@@ -99,7 +99,7 @@ embeddings  = OpenAIEmbeddings()
 vectorstore = FAISS.from_texts(chunks, embeddings)
 
 # save under a client‐specific name
-out_dir = f"{slug}_vectorstore"
+out_dir = os.path.join("vectorstores", f"{slug}_vectorstore")
 vectorstore.save_local(out_dir)
 
 print(f"✅ Cleaned & embedded {len(chunks)} chunks into `{out_dir}`.")
