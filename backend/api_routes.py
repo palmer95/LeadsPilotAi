@@ -7,11 +7,14 @@ from langchain.prompts import PromptTemplate
 from datetime import datetime
 import sales_agent
 import os
+import logging
 import requests
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.retrievers import MergerRetriever
 from langchain.docstore.document import Document
+
+logger = logging.getLogger(__name__)
 
 # Import shared resources from our core.py file
 from core import llm, _session_memory, _vectorstore_cache, _config_cache, conversations_collection, db
@@ -72,18 +75,25 @@ def chat():
     
     # --- AI LOGIC UPGRADE ---
     # 1. Fetch the high-priority custom training data from the new collection
-    custom_training_data = list(db['custom_training'].find({"client_slug": company}))
-    
+    try:
+        custom_training_data = list(db['custom_training'].find({"client_slug": company}))
+    except Exception as e:
+        logger.warning(f"Could not fetch custom training data for {company}: {e}")
+        custom_training_data = []
+
     retriever = vs.as_retriever(search_kwargs={"k": 3}) # Default retriever
-    
+
     # 2. If custom data exists, create a smarter, layered retriever
     if custom_training_data:
         custom_docs = [Document(page_content=item['answer'], metadata={'source': item['question']}) for item in custom_training_data]
-        
-        # 3. Create a small, temporary vector store JUST for this high-priority data
-        priority_vs = FAISS.from_documents(custom_docs, OpenAIEmbeddings())
+
+        # 3. Build (or reuse cached) priority vectorstore for this client's custom data
+        priority_cache_key = f"{company}_priority_vs"
+        if priority_cache_key not in _vectorstore_cache:
+            _vectorstore_cache[priority_cache_key] = FAISS.from_documents(custom_docs, OpenAIEmbeddings())
+        priority_vs = _vectorstore_cache[priority_cache_key]
         priority_retriever = priority_vs.as_retriever(search_kwargs={"k": 1})
-        
+
         # 4. The MergerRetriever searches the priority store FIRST, then the main store.
         # This ensures custom answers are always ranked highest.
         retriever = MergerRetriever(retrievers=[priority_retriever, retriever])
@@ -142,11 +152,14 @@ def chat():
     
     # --- SAVE CONVERSATION TO MONGODB ---
     response_text_to_save = response_data.get("response", "No response generated.")
-    conversations_collection.update_one(
-        {"session_id": session_id, "company": company},
-        {"$push": {"messages": {"timestamp": datetime.utcnow(), "user": query, "bot": response_text_to_save}}},
-        upsert=True
-    )
+    try:
+        conversations_collection.update_one(
+            {"session_id": session_id, "company": company},
+            {"$push": {"messages": {"timestamp": datetime.utcnow(), "user": query, "bot": response_text_to_save}}},
+            upsert=True
+        )
+    except Exception as e:
+        logger.warning(f"Could not save conversation to MongoDB: {e}")
 
 
 

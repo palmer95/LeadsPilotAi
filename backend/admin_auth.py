@@ -20,7 +20,6 @@ admin_users_collection = db['admin_users']  # Assuming you have 'db' already set
 clients_collection = db['clients']
 
 logger = logging.getLogger(__name__)
-logger.info(f"MongoDB URI in {__file__}: {mongo_uri}")
 
 bp = Blueprint('admin_auth', __name__, url_prefix='/api/admin')
 

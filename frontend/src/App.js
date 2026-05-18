@@ -13,6 +13,7 @@ export default function App({ company, configUrl }) {
   const [loading, setLoading] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const chatBoxRef = useRef(null);
+  const sessionIdRef = useRef(`${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
   // Load client config JSON
   useEffect(() => {
@@ -74,6 +75,7 @@ export default function App({ company, configUrl }) {
       const res = await axios.post(`${API_BASE_URL}/api/chat`, {
         query: msg,
         company,
+        session_id: sessionIdRef.current,
       });
       setMessages((m) => {
         const last = m[m.length - 1];
@@ -115,7 +117,10 @@ export default function App({ company, configUrl }) {
     setQuery("");
     setShowBookingModal(false);
     try {
-      await axios.post(`${API_BASE_URL}/api/reset`);
+      await axios.post(`${API_BASE_URL}/api/reset`, {
+        session_id: sessionIdRef.current,
+        company,
+      });
     } catch (err) {
       console.error("Reset failed:", err);
     }
