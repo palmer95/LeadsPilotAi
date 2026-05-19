@@ -5,16 +5,8 @@ import os
 import smtplib
 from datetime import datetime
 from email.message import EmailMessage
-from pymongo import MongoClient
 import logging
-
-# ───────────────────────────────────────────────────────────────
-# MongoDB Setup
-# ───────────────────────────────────────────────────────────────
-mongo_uri = os.getenv('MONGO_URI')
-client = MongoClient(mongo_uri)
-db = client['leadsPilotAI']
-leads_collection = db['leads']
+from core import leads_collection
 
 # ───────────────────────────────────────────────────────────────
 # 1) State Management Functions

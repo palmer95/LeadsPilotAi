@@ -1,21 +1,13 @@
 # admin_routes.py (Cleaned up and corrected)
 
 from flask import Blueprint, request, jsonify
-from pymongo import MongoClient
-import certifi
 import os
 import jwt
 import logging
+from core import leads_collection, faqs_collection
 
-# Setup - assuming these are correctly configured
 logger = logging.getLogger(__name__)
-mongo_uri = os.getenv('MONGO_URI')
 flask_secret_key = os.getenv('FLASK_SECRET_KEY')
-
-client = MongoClient(mongo_uri, tlsCAFile=certifi.where())
-db = client['leadsPilotAI']
-leads_collection = db.leads
-faqs_collection = db.faqs
 
 bp = Blueprint('admin_routes', __name__, url_prefix='/api/admin/data')
 

@@ -4,21 +4,8 @@ import smtplib
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 from flask import Blueprint, request, jsonify
-from pymongo import MongoClient
-import certifi
 from bson import ObjectId
-from dotenv import load_dotenv
-
-load_dotenv()
-
-# MongoDB setup
-mongo_uri = os.getenv('MONGO_URI')
-client = MongoClient(mongo_uri, tlsCAFile=certifi.where())
-db = client['leadsPilotAI']
-
-clients_collection = db.clients
-admin_users_collection = db.admin_users
-faqs_collection = db.faqs
+from core import clients_collection, admin_users_collection, faqs_collection
 
 bp = Blueprint('onboard', __name__, url_prefix='/api')
 
@@ -90,8 +77,8 @@ def onboard():
         "services": [] # will populate later
     }
 
-    client = clients_collection.insert_one(client_doc)
-    client_id = client.inserted_id  # MongoDB ObjectId
+    insert_result = clients_collection.insert_one(client_doc)
+    client_id = insert_result.inserted_id  # MongoDB ObjectId
     
     # 2) Add initial FAQs
     for idx, faq in enumerate(initial_faqs):

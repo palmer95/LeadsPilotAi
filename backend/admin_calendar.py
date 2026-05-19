@@ -9,10 +9,7 @@ from datetime import datetime, timedelta, timezone
 from dateutil import parser
 from pytz import timezone as pytz_timezone
 from config_utils import get_config
-from pymongo import MongoClient
-import certifi
 from bson import ObjectId
-from dotenv import load_dotenv
 import logging
 import base64
 import json
@@ -21,13 +18,8 @@ import googleapiclient.discovery
 import pytz
 
 
-load_dotenv()
-
 local_tz = pytz_timezone("America/Los_Angeles")  # For Pacific Time, later pull this from client config
 
-
-# setup logging
-# Set up logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -38,15 +30,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-# MongoDB setup
-mongo_uri = os.getenv('MONGO_URI')
-client = MongoClient(mongo_uri, tlsCAFile=certifi.where())
-db = client['leadsPilotAI']
-
-# MongoDB Collections
-admin_users_collection = db.admin_users
-clients_collection = db.clients
+from core import admin_users_collection, clients_collection
 
 bp = Blueprint('calendar', __name__, url_prefix='/api/admin/calendar')
 

@@ -8,7 +8,7 @@ load_dotenv()
 
 # Initialize core services to be shared
 MONGO_URI = os.getenv("MONGO_URI")
-client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
+client = MongoClient(MONGO_URI, tlsCAFile=certifi.where(), serverSelectionTimeoutMS=3000)
 db = client['leadsPilotAI']
 
 #collections

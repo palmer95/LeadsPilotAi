@@ -2,22 +2,9 @@ from flask import Blueprint, request, jsonify, session, make_response
 from datetime import datetime, timezone, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 import logging
-from pymongo import MongoClient
-import certifi
 import os
-from dotenv import load_dotenv
 import jwt
-
-load_dotenv()
-
-# MongoDB setup
-mongo_uri = os.getenv('MONGO_URI')
-client = MongoClient(mongo_uri, tlsCAFile=certifi.where())
-db = client['leadsPilotAI']
-
-# MongoDB Collection
-admin_users_collection = db['admin_users']  # Assuming you have 'db' already set up correctly as the client
-clients_collection = db['clients']
+from core import admin_users_collection, clients_collection
 
 logger = logging.getLogger(__name__)
 
