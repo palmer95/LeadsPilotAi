@@ -2,67 +2,96 @@
 from flask import Blueprint, jsonify, request
 import jwt
 import os
-from bson import ObjectId
-
-# Import the database object from our core file
-from core import db, conversations_collection, leads_collection
+import logging
+from core import conversations_collection, leads_collection
 
 bp = Blueprint('analytics_routes', __name__, url_prefix='/api/admin/analytics')
 flask_secret_key = os.getenv('FLASK_SECRET_KEY')
+logger = logging.getLogger(__name__)
+
+FALLBACK_PHRASES = ["don't have that specific detail", "contact the team directly"]
+
 
 @bp.route('/', methods=['GET'])
 def get_analytics_data():
-    # Authentication to get the client_id
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
         return jsonify({"error": "Missing or invalid token"}), 401
     try:
         token = auth_header.split(' ')[1]
         payload = jwt.decode(token, flask_secret_key, algorithms=['HS256'])
-        client_id_str = payload.get('client_id')
-        if not client_id_str:
+        client_slug = payload.get('admin_client_slug')
+        if not client_slug:
             return jsonify({"error": "Invalid token payload"}), 401
-        client_id = ObjectId(client_id_str)
     except Exception as e:
         return jsonify({"error": f"Invalid or expired token: {e}"}), 401
 
     try:
-        # --- GATHER ALL ANALYTICS DATA ---
-        
-        # 1. Get total lead count
-        lead_count = leads_collection.count_documents({"client_id": client_id})
+        lead_count = leads_collection.count_documents({"company_slug": client_slug})
+        conversation_count = conversations_collection.count_documents({"company": client_slug})
 
-        # 2. Get total conversation count
-        # We'll need to add a client_id to conversation documents for this to be accurate.
-        # For now, let's use the slug from the client document.
-        client_doc = db['clients'].find_one({"_id": client_id})
-        client_slug = client_doc.get('slug') if client_doc else None
-
-        conversation_count = 0
-        recent_conversations = []
-        if client_slug:
-            conversation_count = conversations_collection.count_documents({"company": client_slug})
-            # 3. Get the 5 most recent conversations
-            recent_conversations_cursor = conversations_collection.find(
+        all_conversations = list(
+            conversations_collection.find(
                 {"company": client_slug},
-                {"messages": 1} # Only get the messages field
-            ).sort("messages.timestamp", -1).limit(5)
-            
-            for conv in recent_conversations_cursor:
-                conv['_id'] = str(conv['_id'])
-                recent_conversations.append(conv)
+                {"session_id": 1, "messages": 1}
+            ).sort("_id", -1)
+        )
 
-        # 4. Assemble the response payload
-        analytics_payload = {
+        all_questions = []
+        knowledge_gaps = []
+        total_messages = 0
+
+        for conv in all_conversations:
+            for msg in conv.get("messages", []):
+                user_q = msg.get("user", "").strip()
+                bot_r = msg.get("bot", "").strip()
+                ts = msg.get("timestamp")
+                ts_str = ts.isoformat() if ts else None
+
+                if user_q:
+                    total_messages += 1
+                    all_questions.append({"question": user_q, "timestamp": ts_str})
+                    if any(phrase in bot_r.lower() for phrase in FALLBACK_PHRASES):
+                        knowledge_gaps.append({
+                            "question": user_q,
+                            "botResponse": bot_r,
+                            "timestamp": ts_str
+                        })
+
+        recent_conversations = []
+        for conv in all_conversations[:15]:
+            messages = conv.get("messages", [])
+            last_ts = next(
+                (m["timestamp"].isoformat() for m in reversed(messages) if m.get("timestamp")),
+                None
+            )
+            recent_conversations.append({
+                "_id": str(conv["_id"]),
+                "session_id": conv.get("session_id", ""),
+                "messageCount": len(messages),
+                "lastActive": last_ts,
+                "messages": [
+                    {
+                        "user": m.get("user", ""),
+                        "bot": m.get("bot", ""),
+                        "timestamp": m["timestamp"].isoformat() if m.get("timestamp") else None,
+                    }
+                    for m in messages
+                ],
+            })
+
+        return jsonify({
             "stats": {
-                "leadCount": lead_count,
                 "conversationCount": conversation_count,
-                "appointmentsBooked": 0 # Placeholder for now
+                "messageCount": total_messages,
+                "leadCount": lead_count,
+                "gapCount": len(knowledge_gaps),
             },
-            "recentConversations": recent_conversations
-        }
-        
-        return jsonify(analytics_payload)
+            "recentConversations": recent_conversations,
+            "allQuestions": all_questions,
+            "knowledgeGaps": knowledge_gaps,
+        })
 
     except Exception as e:
-        return jsonify({"error": f"An error occurred while fetching analytics: {e}"}), 500
+        logger.error(f"Analytics error for {client_slug}: {e}")
+        return jsonify({"error": f"An error occurred: {e}"}), 500
