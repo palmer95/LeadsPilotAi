@@ -13,7 +13,9 @@ export default function App({ company, configUrl }) {
   const [loading, setLoading] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const chatBoxRef = useRef(null);
-  const sessionIdRef = useRef(`${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const sessionIdRef = useRef(
+    `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
 
   // Load client config JSON
   useEffect(() => {
@@ -35,7 +37,7 @@ export default function App({ company, configUrl }) {
     setMessages([
       {
         user: "",
-        bot: `Hi I'm Clyde 🤓, ${config.welcome} Type 'book' to schedule an appointment!`,
+        bot: `Hi I'm Clyde, ${config.welcome} Type 'book' to schedule an appointment!`,
       },
     ]);
   }, [config]);
@@ -132,7 +134,7 @@ export default function App({ company, configUrl }) {
             bot: `Hi I'm Clyde 🤓, ${config.welcome} Type 'book' to schedule an appointment!`,
           },
         ]),
-      200
+      200,
     );
   };
 
