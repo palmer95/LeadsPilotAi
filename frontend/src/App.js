@@ -131,7 +131,7 @@ export default function App({ company, configUrl }) {
         setMessages([
           {
             user: "",
-            bot: `Hi I'm Clyde 🤓, ${config.welcome} Type 'book' to schedule an appointment!`,
+            bot: `Hi I'm Clyde, ${config.welcome} Type 'book' to schedule an appointment!`,
           },
         ]),
       200,
