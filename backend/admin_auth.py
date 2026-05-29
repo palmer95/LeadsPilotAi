@@ -127,7 +127,7 @@ def verify_token():
     try:
         payload = jwt.decode(token, os.getenv('FLASK_SECRET_KEY'), algorithms=['HS256'])
         logger.info(f"Token payload: {payload}")
-        return create_response({"logged_in": True, "admin_user_id": payload['admin_user_id']})
+        return create_response({"logged_in": True, "admin_user_id": payload['admin_user_id'], "client_slug": payload.get('admin_client_slug')})
     except jwt.ExpiredSignatureError:
         return create_response({"error": "Token expired"}, 401)
     except jwt.InvalidTokenError:
