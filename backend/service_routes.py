@@ -19,10 +19,15 @@ def get_client_id_from_token():
     try:
         token = auth_header.split(' ')[1]
         payload = jwt.decode(token, flask_secret_key, algorithms=['HS256'])
-        client_id_str = payload.get('client_id')
-        if not client_id_str:
+        # The JWT carries the client slug (admin_client_slug), not the ObjectId.
+        # Resolve the client document by slug to get its _id.
+        client_slug = payload.get('admin_client_slug')
+        if not client_slug:
             return None, (jsonify({"error": "Invalid token payload"}), 401)
-        return ObjectId(client_id_str), None
+        client = clients_collection.find_one({"slug": client_slug})
+        if not client:
+            return None, (jsonify({"error": "Client not found"}), 404)
+        return client['_id'], None
     except Exception as e:
         return None, (jsonify({"error": f"Invalid or expired token: {e}"}), 401)
 

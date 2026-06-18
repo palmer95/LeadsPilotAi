@@ -1,6 +1,7 @@
 # app.py (Final Version - Manual CORS)
 
 import os
+from urllib.parse import urlparse
 from flask import Flask, request, jsonify, make_response
 from dotenv import load_dotenv
 import logging
@@ -29,9 +30,14 @@ def after_request(response):
     # Dynamically check if the origin is trusted or in the client DB
     if origin in trusted_origins:
         response.headers.set('Access-Control-Allow-Origin', origin)
-    else:
+    elif origin:
         try:
-            client_doc = db['clients'].find_one({"domain": origin})
+            # Match the request origin against the client's stored domain.
+            # Origin arrives as a full URL (e.g. "https://www.clientsite.com");
+            # clients store a bare hostname, so compare on hostname (with/without www).
+            hostname = urlparse(origin).hostname or origin
+            candidates = {origin, hostname, hostname.removeprefix("www.")}
+            client_doc = db['clients'].find_one({"domain": {"$in": list(candidates)}})
             if client_doc:
                 response.headers.set('Access-Control-Allow-Origin', origin)
         except Exception as e:

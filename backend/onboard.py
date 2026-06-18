@@ -66,6 +66,9 @@ def onboard():
     client_doc = {
         "slug": slug,
         "business_name": name,
+        # Site hostname (e.g. "clientsite.com") — used to authorize the widget's
+        # cross-origin requests in app.py's CORS handler.
+        "domain": data.get('domain', ''),
         "location": data.get('location', ''),
         "description": data.get('description', ''),
         "calendar_id": data.get('calendar_id', ''),

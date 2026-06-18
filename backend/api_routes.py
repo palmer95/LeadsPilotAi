@@ -17,7 +17,7 @@ from langchain.docstore.document import Document
 logger = logging.getLogger(__name__)
 
 # Import shared resources from our core.py file
-from core import llm, _session_memory, _vectorstore_cache, _config_cache, conversations_collection, db
+from core import llm, _session_memory, _vectorstore_cache, _config_cache, conversations_collection, db, clients_collection, faqs_collection
 
 # The Blueprint is defined with the /api prefix, so routes are relative to that.
 bp = Blueprint('api_routes', __name__, url_prefix='/api')
@@ -61,9 +61,16 @@ def chat():
 
     try:
         CONFIG = get_config(company)
-        vs = get_vectorstore(company)
     except FileNotFoundError as e:
         return jsonify({"error": str(e)}), 404
+
+    # The main FAISS vectorstore is optional. Newly onboarded clients may not have
+    # one built yet — they can still be answered from their FAQ / training data.
+    try:
+        vs = get_vectorstore(company)
+    except FileNotFoundError:
+        logger.warning(f"No FAISS vectorstore for '{company}'; relying on FAQ/training data only.")
+        vs = None
 
     # --- STATE MANAGEMENT (No changes) ---
     chat_memory_key = f"chat_history:{company}:{session_id}"
@@ -73,54 +80,76 @@ def chat():
     memory = _session_memory[chat_memory_key]
     current_sales_state = _session_memory.get(sales_state_key, sales_agent.get_initial_state())
     
-    # --- AI LOGIC UPGRADE ---
-    # 1. Fetch the high-priority custom training data from the new collection
+    # --- KNOWLEDGE RETRIEVAL ---
+    # High-priority, client-authored answers come from two collections:
+    #   * custom_training — answers added in the admin "training" UI  (keyed by slug)
+    #   * faqs            — FAQs captured during onboarding             (keyed by the client's _id)
+    # Both are ranked ahead of the main FAISS vectorstore so client answers win,
+    # and so a newly onboarded client (no FAISS store yet) can still be answered.
+    priority_docs = []
     try:
-        custom_training_data = list(db['custom_training'].find({"client_slug": company}))
+        for item in db['custom_training'].find({"client_slug": company}):
+            if item.get('answer'):
+                priority_docs.append(Document(page_content=item['answer'], metadata={'source': item.get('question', '')}))
     except Exception as e:
         logger.warning(f"Could not fetch custom training data for {company}: {e}")
-        custom_training_data = []
 
-    retriever = vs.as_retriever(search_kwargs={"k": 3}) # Default retriever
+    try:
+        client_doc = clients_collection.find_one({"slug": company})
+        if client_doc:
+            for faq in faqs_collection.find({"client_id": client_doc['_id']}):
+                if faq.get('answer'):
+                    priority_docs.append(Document(page_content=faq['answer'], metadata={'source': faq.get('question', '')}))
+    except Exception as e:
+        logger.warning(f"Could not fetch onboarding FAQs for {company}: {e}")
 
-    # 2. If custom data exists, create a smarter, layered retriever
-    if custom_training_data:
-        custom_docs = [Document(page_content=item['answer'], metadata={'source': item['question']}) for item in custom_training_data]
-
-        # 3. Build (or reuse cached) priority vectorstore for this client's custom data
+    # Build a layered retriever from whatever knowledge sources exist for this client.
+    retrievers = []
+    if priority_docs:
+        # Cached per-client; rebuilt on restart (see training-cache TODO in CLAUDE.md).
         priority_cache_key = f"{company}_priority_vs"
         if priority_cache_key not in _vectorstore_cache:
-            _vectorstore_cache[priority_cache_key] = FAISS.from_documents(custom_docs, OpenAIEmbeddings())
-        priority_vs = _vectorstore_cache[priority_cache_key]
-        priority_retriever = priority_vs.as_retriever(search_kwargs={"k": 1})
+            _vectorstore_cache[priority_cache_key] = FAISS.from_documents(priority_docs, OpenAIEmbeddings())
+        retrievers.append(_vectorstore_cache[priority_cache_key].as_retriever(search_kwargs={"k": 2}))
+    if vs is not None:
+        retrievers.append(vs.as_retriever(search_kwargs={"k": 3}))
 
-        # 4. The MergerRetriever searches the priority store FIRST, then the main store.
-        # This ensures custom answers are always ranked highest.
-        retriever = MergerRetriever(retrievers=[priority_retriever, retriever])
-        
-    # 5. Build the QA chain with our new, smarter retriever
+    if len(retrievers) > 1:
+        retriever = MergerRetriever(retrievers=retrievers)
+    elif retrievers:
+        retriever = retrievers[0]
+    else:
+        retriever = None
+
+    # Build the QA chain (only possible if the client has any knowledge source).
     business_name = CONFIG.get('business_name', 'this company')
-    qa_prompt = PromptTemplate(
-        input_variables=["context", "question"],
-        template=(
-            f"You are Clyde, an AI sales assistant for {business_name}. "
-            "Your job is to help visitors learn about services, pricing, and book appointments. "
-            "Answer questions using ONLY the context below. "
-            "If the answer is not in the context, say you don't have that specific detail "
-            "and suggest the visitor contact the team directly. "
-            "Never say you are not affiliated with the company — you are their dedicated assistant.\n\n"
-            "Context:\n{context}\n\n"
-            "Question: {question}\n"
-            "Answer:"
+    no_knowledge_reply = (
+        "I don't have that specific detail right now — the best next step is to "
+        "contact the team directly and they'll be happy to help."
+    )
+    qa_chain = None
+    if retriever is not None:
+        qa_prompt = PromptTemplate(
+            input_variables=["context", "question"],
+            template=(
+                f"You are Clyde, an AI sales assistant for {business_name}. "
+                "Your job is to help visitors learn about services, pricing, and book appointments. "
+                "Answer questions using ONLY the context below. "
+                "If the answer is not in the context, say you don't have that specific detail "
+                "and suggest the visitor contact the team directly. "
+                "Never say you are not affiliated with the company — you are their dedicated assistant.\n\n"
+                "Context:\n{context}\n\n"
+                "Question: {question}\n"
+                "Answer:"
+            )
         )
-    )
-    qa_chain = ConversationalRetrievalChain.from_llm(
-        llm=llm,
-        retriever=retriever,
-        memory=memory,
-        combine_docs_chain_kwargs={"prompt": qa_prompt}
-    )
-    # --- END OF AI LOGIC UPGRADE ---
+        qa_chain = ConversationalRetrievalChain.from_llm(
+            llm=llm,
+            retriever=retriever,
+            memory=memory,
+            combine_docs_chain_kwargs={"prompt": qa_prompt}
+        )
+    # --- END OF KNOWLEDGE RETRIEVAL ---
 
     # Initialize variables for the response
     response_data = {}
@@ -135,14 +164,20 @@ def chat():
     elif current_sales_state['state'] in ['engaged', 'booking']:
         response_data, new_sales_state = sales_agent.continue_sales_flow(user_input, CONFIG, current_sales_state)
         if response_data.get("response") == "__INFORMATIONAL_QUERY__":
-            qa_result = qa_chain.invoke({"question": user_input})
-            qa_response_text = qa_result.get("answer", "").strip()
+            if qa_chain is not None:
+                qa_result = qa_chain.invoke({"question": user_input})
+                qa_response_text = qa_result.get("answer", "").strip() or no_knowledge_reply
+            else:
+                qa_response_text = no_knowledge_reply
             response_data, new_sales_state = sales_agent.continue_sales_flow(user_input, CONFIG, new_sales_state, qa_response=qa_response_text)
     else:
         # This is the normal QA query
-        result = qa_chain.invoke({"question": user_input})
-        response_text = result.get("answer", "").strip()
-        
+        if qa_chain is not None:
+            result = qa_chain.invoke({"question": user_input})
+            response_text = result.get("answer", "").strip() or no_knowledge_reply
+        else:
+            response_text = no_knowledge_reply
+
         pkg = sales_agent.extract_package(response_text, CONFIG, current_sales_state)
         if pkg:
             new_sales_state = current_sales_state.copy()

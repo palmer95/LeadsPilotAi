@@ -3,6 +3,11 @@
 ## What This Is
 Multi-tenant AI sales chatbot SaaS. Clients get a `<script>` tag that embeds a branded chatbot on their site. Current clients: Virtour Media, LeadsPilotAI (own site).
 
+## Business Model & Onboarding
+- **No Stripe/self-serve signup** — intentional. Onboarding is manual and controlled. New clients are added via the `/api/onboard` endpoint (API key protected).
+- **Demo**: The LeadsPilotAI chatbot is live on the marketing site so prospects can try it themselves.
+- **Contact page trick**: The contact page tells visitors the best way to reach them is through the chatbot, and automatically opens the chatbot widget when you land on it. Clever lead capture.
+
 ## Repos
 - `product/` — this repo (backend Flask API + React frontend widget)
 - `leadspilotai-site/` — Next.js marketing/admin site, serves `public/chatbot.js` and `public/client-configs/{slug}.json`
@@ -50,3 +55,16 @@ Multi-tenant AI sales chatbot SaaS. Clients get a `<script>` tag that embeds a b
 - [ ] **Replace `datetime.utcnow()`** — Deprecated in Python 3.12+. Use `datetime.now(timezone.utc)` throughout.
 - [ ] **Environment variable for API base URL in frontend** — `API_BASE_URL` is hardcoded in `frontend/src/App.js`. Use `process.env.REACT_APP_API_URL`.
 - [ ] **Re-embed vectorstores for new clients** — `clean_and_embed.py` still has hardcoded Virtour URLs. Make it fully driven by `COMPANY_SLUG` env var and a client config file so new clients can be embedded without editing code.
+
+---
+
+## Admin Portal — Missing Features
+
+### High Priority
+- [ ] **Clyde cache invalidation on training save** — When admin adds/deletes training data, the priority vectorstore cache on Render doesn't update until server restart. Clients will add an answer and Clyde still won't know it. Fix: clear `{slug}_priority_vs` from `_vectorstore_cache` in `training_routes.py` on every write and delete.
+- [x] **Embed code snippet in admin portal** — Done. Bottom of admin dashboard shows their ready-to-copy `<script>` tag with a copy button. Pulled from JWT via verify-token endpoint.
+- [ ] **New client onboarding checklist** — After setup, clients land on the dashboard with no guidance. Add a simple checklist: connect calendar → add training data → copy embed code → go live. Dramatically reduces confusion.
+
+### Medium Priority
+- [ ] **Password reset flow** — No way for clients to reset a forgotten password. The invite token system in `onboard.py` already does most of the work — reuse it for a forgot password email flow.
+- [ ] **Conversion rate metric on analytics** — Analytics shows conversations and leads separately but not the ratio. Conversations → leads % is the single most important number for demonstrating bot value to clients. Add it to the stats row.

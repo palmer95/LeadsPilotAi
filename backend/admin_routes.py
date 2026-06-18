@@ -4,7 +4,7 @@ from flask import Blueprint, request, jsonify
 import os
 import jwt
 import logging
-from core import leads_collection, faqs_collection
+from core import leads_collection, faqs_collection, clients_collection
 
 logger = logging.getLogger(__name__)
 flask_secret_key = os.getenv('FLASK_SECRET_KEY')
@@ -65,16 +65,21 @@ def get_faqs():
         logger.error(f"Token decoding error: {e}")
         return jsonify({"error": "Invalid or expired token"}), 401
 
-    # 2. Database Query (Now correctly scoped to the client)
+    # 2. Database Query (FAQs are stored keyed by the client's ObjectId, not slug)
     try:
-        faqs_cursor = faqs_collection.find({"company_slug": client_slug})
-        
+        client_doc = clients_collection.find_one({"slug": client_slug})
+        if not client_doc:
+            return jsonify([])
+
+        faqs_cursor = faqs_collection.find({"client_id": client_doc['_id']})
+
         # 3. Data Serialization
         serializable_faqs = []
         for faq in faqs_cursor:
             faq['_id'] = str(faq['_id'])
+            faq['client_id'] = str(faq['client_id'])
             serializable_faqs.append(faq)
-            
+
         return jsonify(serializable_faqs)
         
     except Exception as e:
