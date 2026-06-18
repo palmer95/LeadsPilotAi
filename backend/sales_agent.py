@@ -130,6 +130,9 @@ def start_sales_flow(config: dict, state: dict, user_input: str | None = None) -
 
     if pkg:
         new_state["interested_package"] = pkg
+        # We're asking the first qualifying question now, so advance the index to 1.
+        # (continue_sales_flow records each incoming message as the answer to questions[idx-1].)
+        new_state["question_index"] = 1
         ques = config["qualifying_questions"][0]
         response = {"response": f"Great! To get started with the **{pkg}** package, I just have a few quick questions. First, {ques}"}
     else:
@@ -164,42 +167,42 @@ def continue_sales_flow(user_input: str, config: dict, state: dict, qa_response:
 
     # 4) Booking state: walk through qualifiers + contact, then persist + email
     if new_state["state"] == "booking":
-        idx = new_state["question_index"]
+        # Contact questions are appended after the client's qualifying questions.
+        # Order matters: name, phone, email — the finalizer reads them by position.
         questions = config["qualifying_questions"] + [
-            "Perfect. And what is your full name?", "Thank you. Finally, what’s the best email address to reach you at?"
+            "Perfect. And what is your full name?",
+            "Got it. And what's the best phone number to reach you at?",
+            "Thank you. Finally, what's the best email address to reach you at?",
         ]
+        idx = new_state["question_index"]
 
-        # Record the previous answer
-        # On the first question, the user's input might be the package name.
-        if idx > 0:
-            new_state["answers"].append({
-                "question": questions[idx-1],
-                "answer":   user_input
-            })
-        else: # Handle case where a package was just selected
-            if not new_state['interested_package']:
-                pkg = extract_package(user_input, config, new_state)
-                new_state['interested_package'] = pkg
-        
-        # Still more questions? Ask the next one.
+        # If we arrived here with no package chosen yet (user picked from the list),
+        # treat this message as the package selection and ask the first question.
+        if idx == 0 and not new_state.get("interested_package"):
+            new_state["interested_package"] = extract_package(user_input, config, new_state) or user_input
+            new_state["question_index"] = 1
+            return {"response": questions[0]}, new_state
+
+        # Otherwise this message is the answer to the question we last asked (questions[idx-1]).
+        new_state["answers"].append({"question": questions[idx - 1], "answer": user_input})
+
+        # More questions to ask? Ask the next one.
         if idx < len(questions):
-            response = {"response": questions[idx]}
             new_state["question_index"] = idx + 1
-            return response, new_state
+            return {"response": questions[idx]}, new_state
 
-        # --- Flow Complete: Persist and Finalize ---
-        # Record the final answer (email)
-        new_state["answers"].append({"question": questions[idx-1], "answer": user_input})
-
-        # Extract lead details from the answers list
+        # --- Flow complete: persist and finalize ---
+        # answers are ordered: [qualifiers..., name, phone, email]
         info = new_state["answers"]
-        name = info[-2]["answer"]
+        name = info[-3]["answer"]
+        phone = info[-2]["answer"]
         contact_email = info[-1]["answer"]
-        qualifiers = info[:-2]
+        qualifiers = info[:-3]
 
         lead_data = {
             "company_slug": config.get("slug", "unknown"),
             "name": name,
+            "phone": phone,
             "email": contact_email,
             "interested_package": new_state["interested_package"],
             "qualifying_answers": qualifiers,
