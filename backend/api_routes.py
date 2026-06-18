@@ -97,6 +97,59 @@ def log_kb_relevance(company: str, query: str, vs):
     return best_distance, best_source
 
 
+NO_KNOWLEDGE_REPLY = (
+    "I don't have that specific detail right now — the best next step is to "
+    "contact the team directly and they'll be happy to help."
+)
+# Phrases that signal the grounded RAG chain couldn't actually answer from the KB.
+FALLBACK_PHRASES = ("don't have that specific detail", "don't have that detail")
+
+
+def _is_non_answer(text: str) -> bool:
+    if not text:
+        return True
+    low = text.lower()
+    return any(p in low for p in FALLBACK_PHRASES)
+
+
+def answer_query(query: str, qa_chain, business_name: str) -> str:
+    """Tiered answering for an informational question:
+
+      1/2) grounded RAG over the client's data + scraped content (qa_chain), then
+      3)   if the knowledge base can't answer, a *guarded* general-knowledge reply
+           instead of a flat 'I don't know'. The fallback must never invent
+           company specifics (pricing, packages, services, policies).
+    """
+    grounded = ""
+    if qa_chain is not None:
+        try:
+            grounded = (qa_chain.invoke({"question": query}).get("answer") or "").strip()
+        except Exception as e:
+            logger.warning(f"Grounded QA failed for '{business_name}': {e}")
+
+    if not _is_non_answer(grounded):
+        return grounded
+
+    # Tier 3 — last-resort general-knowledge fallback (with guardrails).
+    fallback_prompt = (
+        f"You are Clyde, a friendly assistant for {business_name}. A visitor asked something "
+        "that isn't covered by the company's knowledge base. If it is a general question (how "
+        "things work in the industry, general advice, common questions), answer helpfully in a "
+        "few friendly sentences. NEVER invent company-specific facts — pricing, packages, "
+        "services, availability, or policies. If the question needs those, say you don't have "
+        "that detail and offer to connect them with the team. Reply in plain conversational prose.\n\n"
+        f"Visitor question: {query}\n"
+        "Answer:"
+    )
+    try:
+        resp = llm.invoke(fallback_prompt)
+        text = (getattr(resp, "content", "") or "").strip()
+        return text or NO_KNOWLEDGE_REPLY
+    except Exception as e:
+        logger.warning(f"Fallback LLM call failed for '{business_name}': {e}")
+        return grounded or NO_KNOWLEDGE_REPLY
+
+
 @bp.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json(force=True)
@@ -171,10 +224,6 @@ def chat():
 
     # Build the QA chain (only possible if the client has any knowledge source).
     business_name = CONFIG.get('business_name', 'this company')
-    no_knowledge_reply = (
-        "I don't have that specific detail right now — the best next step is to "
-        "contact the team directly and they'll be happy to help."
-    )
     qa_chain = None
     if retriever is not None:
         qa_prompt = PromptTemplate(
@@ -218,20 +267,12 @@ def chat():
         response_data, new_sales_state = sales_agent.continue_sales_flow(user_input, CONFIG, current_sales_state)
         if response_data.get("response") == "__INFORMATIONAL_QUERY__":
             log_kb_relevance(company, user_input, vs)
-            if qa_chain is not None:
-                qa_result = qa_chain.invoke({"question": user_input})
-                qa_response_text = qa_result.get("answer", "").strip() or no_knowledge_reply
-            else:
-                qa_response_text = no_knowledge_reply
+            qa_response_text = answer_query(user_input, qa_chain, business_name)
             response_data, new_sales_state = sales_agent.continue_sales_flow(user_input, CONFIG, new_sales_state, qa_response=qa_response_text)
     else:
         # This is the normal QA query
         log_kb_relevance(company, user_input, vs)
-        if qa_chain is not None:
-            result = qa_chain.invoke({"question": user_input})
-            response_text = result.get("answer", "").strip() or no_knowledge_reply
-        else:
-            response_text = no_knowledge_reply
+        response_text = answer_query(user_input, qa_chain, business_name)
 
         pkg = sales_agent.extract_package(response_text, CONFIG, current_sales_state)
         if pkg:
