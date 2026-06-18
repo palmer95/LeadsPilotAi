@@ -4,12 +4,19 @@ import jwt
 import os
 from bson import ObjectId
 
-# Import the database object from our core file
-from core import db
+# Import the database object + shared vectorstore cache from our core file
+from core import db, _vectorstore_cache
 
 bp = Blueprint('training_routes', __name__, url_prefix='/api/admin/training')
 flask_secret_key = os.getenv('FLASK_SECRET_KEY')
 training_collection = db['custom_training'] # Our new collection
+
+
+def invalidate_priority_cache(client_slug):
+    """Drop this client's cached priority vectorstore so the next /api/chat rebuilds
+    it from the updated training data. Without this, edits don't reach Clyde until
+    the server restarts (the cache lives in-process in core._vectorstore_cache)."""
+    _vectorstore_cache.pop(f"{client_slug}_priority_vs", None)
 
 # This helper will be used in all routes to get the authenticated client
 def get_client_slug_from_token():
@@ -62,7 +69,8 @@ def add_training_data():
     }
     result = training_collection.insert_one(new_entry)
     new_entry['_id'] = str(result.inserted_id)
-    
+    invalidate_priority_cache(client_slug)
+
     return jsonify(new_entry), 201
 
 @bp.route('/upload', methods=['POST'])
@@ -87,6 +95,7 @@ def upload_training_data():
     inserted = list(training_collection.find({"_id": {"$in": result.inserted_ids}}))
     for item in inserted:
         item['_id'] = str(item['_id'])
+    invalidate_priority_cache(client_slug)
 
     return jsonify({"inserted": len(inserted), "items": inserted}), 201
 
@@ -104,6 +113,7 @@ def delete_training_data(item_id):
     })
 
     if result.deleted_count == 1:
+        invalidate_priority_cache(client_slug)
         return jsonify({"success": True}), 200
     else:
         return jsonify({"error": "Item not found or you do not have permission to delete it"}), 404

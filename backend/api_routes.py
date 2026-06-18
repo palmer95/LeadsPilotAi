@@ -160,6 +160,9 @@ def chat():
     if not company or not query:
         return jsonify({"error": "Missing 'company' or 'query' in request body."}), 400
 
+    if len(query) > 2000:
+        return jsonify({"error": "Query is too long (2000 character max)."}), 400
+
     try:
         CONFIG = get_config(company)
     except FileNotFoundError as e:
@@ -256,7 +259,9 @@ def chat():
     # Initialize variables for the response
     response_data = {}
     new_sales_state = current_sales_state
-    user_input = query.lower()
+    # Keep the original casing — sales-intent helpers lowercase internally, and the
+    # booking flow stores answers (names, emails) verbatim from user_input.
+    user_input = query
 
     # --- SALES FLOW LOGIC (No changes) ---
     if sales_agent.is_pricing_inquiry(user_input) and current_sales_state['state'] in ['idle', 'excited']:

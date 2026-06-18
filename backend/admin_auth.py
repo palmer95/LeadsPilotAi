@@ -45,20 +45,15 @@ def login_with_token():
     token = data.get('token')
     password = data.get('password')
 
-    logger.info(f"Received token: {token}")
-
-
     if not token or not password:
         return jsonify({"error": "token and password are required"}), 400
 
     # Find user by token
-    logger.info(f"querying admin collection: {admin_users_collection}")
     try:
         user = admin_users_collection.find_one({"invite_token": token})
     except Exception as e:
         logger.error(f"Database error during login-with-token: {e}")
         return jsonify({"error": "Service temporarily unavailable"}), 503
-    logger.info(f"Found user: {user}")
     if not user:
         return jsonify({"error": "Invalid invite token"}), 401
 
@@ -94,12 +89,9 @@ def login_with_token():
 @bp.route('/login', methods=['POST', 'OPTIONS'])
 def login():
     if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
-        return response
-        
+        # CORS headers are applied centrally by app.py's after_request handler.
+        return make_response('', 204)
+
     data = request.get_json() or {}
     email = data.get("email")
     password = data.get("password")
@@ -129,24 +121,17 @@ def login():
         'exp': datetime.utcnow() + timedelta(hours=1)
     }, os.getenv('FLASK_SECRET_KEY'), algorithm='HS256')
 
-    response = make_response(jsonify({"success": True, "token": token}))
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
+    return make_response(jsonify({"success": True, "token": token}))
 
 def create_response(data, status=200):
-    response = make_response(jsonify(data), status)
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
+    # CORS headers are applied centrally by app.py's after_request handler.
+    return make_response(jsonify(data), status)
 
 
 @bp.route('/verify-token', methods=['GET', 'OPTIONS'])
 def verify_token():
     if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Authorization'
-        return response
+        return make_response('', 204)
 
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
@@ -155,7 +140,6 @@ def verify_token():
     token = auth_header.split(' ')[1]
     try:
         payload = jwt.decode(token, os.getenv('FLASK_SECRET_KEY'), algorithms=['HS256'])
-        logger.info(f"Token payload: {payload}")
         return create_response({"logged_in": True, "admin_user_id": payload['admin_user_id'], "client_slug": payload.get('admin_client_slug')})
     except jwt.ExpiredSignatureError:
         return create_response({"error": "Token expired"}, 401)
