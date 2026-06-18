@@ -43,9 +43,13 @@ def get_services():
     client = clients_collection.find_one({"_id": client_id})
     if not client:
         return jsonify({"error": "Client not found"}), 404
-        
-    # Return the services array, or an empty array if it doesn't exist
-    return jsonify(client.get("services", []))
+
+    # Services carry their own ObjectId _id — stringify it so the array is JSON-serializable.
+    services = client.get("services", [])
+    for svc in services:
+        if isinstance(svc.get('_id'), ObjectId):
+            svc['_id'] = str(svc['_id'])
+    return jsonify(services)
 
 # POST a new service for a client
 @bp.route('/', methods=['POST'])

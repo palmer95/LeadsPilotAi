@@ -49,6 +49,54 @@ def get_vectorstore(company: str) -> FAISS:
     return _vectorstore_cache[company]
 
 
+# --- KB relevance signal (calibration only: logs, does NOT change behavior yet) ---
+# FAISS scores are L2 distances, so LOWER = more relevant. A large best-distance
+# means the query probably isn't covered by the knowledge base — that's where we
+# will later fall back to a general-knowledge answer instead of replying "I don't
+# know". The threshold below is a starting guess; we tune it from these logs.
+KB_RELEVANCE_DISTANCE_THRESHOLD = float(os.getenv("KB_RELEVANCE_THRESHOLD", "0.5"))
+
+def log_kb_relevance(company: str, query: str, vs):
+    """Measure how well the query matches this client's FAISS stores, and log it.
+
+    Returns (best_distance, best_source); both None when no stores are available.
+    Note: the QA chain may rephrase follow-up questions before retrieving, so for
+    multi-turn queries this raw-query score is approximate — fine for calibration.
+    """
+    stores = []
+    priority = _vectorstore_cache.get(f"{company}_priority_vs")
+    if priority is not None:
+        stores.append(("client", priority))   # FAQs + admin training data
+    if vs is not None:
+        stores.append(("vectorstore", vs))     # scraped website content
+
+    best_distance = None
+    best_source = None
+    for source, store in stores:
+        try:
+            hits = store.similarity_search_with_score(query, k=1)
+        except Exception as e:
+            logger.warning(f"KB relevance check failed on '{source}' store for {company}: {e}")
+            continue
+        if hits:
+            distance = hits[0][1]
+            if best_distance is None or distance < best_distance:
+                best_distance = distance
+                best_source = source
+
+    would_fallback = best_distance is None or best_distance > KB_RELEVANCE_DISTANCE_THRESHOLD
+    logger.info(
+        "[KB-RELEVANCE] company=%s would_fallback=%s best_distance=%s threshold=%s source=%s q=%r",
+        company,
+        would_fallback,
+        f"{best_distance:.4f}" if best_distance is not None else "none",
+        KB_RELEVANCE_DISTANCE_THRESHOLD,
+        best_source,
+        query[:120],
+    )
+    return best_distance, best_source
+
+
 @bp.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json(force=True)
@@ -164,6 +212,7 @@ def chat():
     elif current_sales_state['state'] in ['engaged', 'booking']:
         response_data, new_sales_state = sales_agent.continue_sales_flow(user_input, CONFIG, current_sales_state)
         if response_data.get("response") == "__INFORMATIONAL_QUERY__":
+            log_kb_relevance(company, user_input, vs)
             if qa_chain is not None:
                 qa_result = qa_chain.invoke({"question": user_input})
                 qa_response_text = qa_result.get("answer", "").strip() or no_knowledge_reply
@@ -172,6 +221,7 @@ def chat():
             response_data, new_sales_state = sales_agent.continue_sales_flow(user_input, CONFIG, new_sales_state, qa_response=qa_response_text)
     else:
         # This is the normal QA query
+        log_kb_relevance(company, user_input, vs)
         if qa_chain is not None:
             result = qa_chain.invoke({"question": user_input})
             response_text = result.get("answer", "").strip() or no_knowledge_reply
