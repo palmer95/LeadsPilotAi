@@ -29,11 +29,16 @@ def get_analytics_data():
     try:
         lead_count = leads_collection.count_documents({"company_slug": client_slug})
         conversation_count = conversations_collection.count_documents({"company": client_slug})
+        # Genuine visitor conversations only (excludes bots / crawlers / health checks /
+        # API calls). Legacy conversations saved before traffic tagging won't match.
+        real_conversation_count = conversations_collection.count_documents(
+            {"company": client_slug, "traffic_type": "visitor"}
+        )
 
         all_conversations = list(
             conversations_collection.find(
                 {"company": client_slug},
-                {"session_id": 1, "messages": 1}
+                {"session_id": 1, "messages": 1, "traffic_type": 1}
             ).sort("_id", -1)
         )
 
@@ -68,6 +73,7 @@ def get_analytics_data():
             recent_conversations.append({
                 "_id": str(conv["_id"]),
                 "session_id": conv.get("session_id", ""),
+                "trafficType": conv.get("traffic_type", "unknown"),
                 "messageCount": len(messages),
                 "lastActive": last_ts,
                 "messages": [
@@ -83,6 +89,7 @@ def get_analytics_data():
         return jsonify({
             "stats": {
                 "conversationCount": conversation_count,
+                "realConversationCount": real_conversation_count,
                 "messageCount": total_messages,
                 "leadCount": lead_count,
                 "gapCount": len(knowledge_gaps),

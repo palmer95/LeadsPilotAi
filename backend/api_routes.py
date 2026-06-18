@@ -7,6 +7,7 @@ from langchain.prompts import PromptTemplate
 from datetime import datetime
 import sales_agent
 import os
+import re
 import logging
 import requests
 from langchain_openai import OpenAIEmbeddings
@@ -150,6 +151,28 @@ def answer_query(query: str, qa_chain, business_name: str) -> str:
         return grounded or NO_KNOWLEDGE_REPLY
 
 
+# Identify non-human traffic so analytics can separate real visitors from bots,
+# crawlers, health checks, and API/test calls.
+BOT_UA_RE = re.compile(
+    r"bot|crawl|spider|slurp|curl|wget|python-requests|httpx|aiohttp|headless|"
+    r"phantom|scrapy|monitor|healthcheck|uptime|pingdom|lighthouse|axios|postman",
+    re.IGNORECASE,
+)
+
+def classify_traffic(user_agent: str) -> str:
+    """Best-effort label for a chat request's source.
+
+      'visitor' — a real browser User-Agent (counts as a genuine conversation)
+      'bot'     — matches a known bot/crawler/tool signature
+      'unknown' — no User-Agent at all (script / API / health check, not a browser)
+    """
+    if not user_agent:
+        return "unknown"
+    if BOT_UA_RE.search(user_agent):
+        return "bot"
+    return "visitor"
+
+
 @bp.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json(force=True)
@@ -288,10 +311,18 @@ def chat():
     
     # --- SAVE CONVERSATION TO MONGODB ---
     response_text_to_save = response_data.get("response", "No response generated.")
+    # Capture request provenance so analytics can tell real visitors apart from
+    # bots / crawlers / health checks / API calls.
+    user_agent = request.headers.get('User-Agent', '')
+    origin = request.headers.get('Origin') or request.headers.get('Referer') or ''
+    traffic_type = classify_traffic(user_agent)
     try:
         conversations_collection.update_one(
             {"session_id": session_id, "company": company},
-            {"$push": {"messages": {"timestamp": datetime.utcnow(), "user": query, "bot": response_text_to_save}}},
+            {
+                "$push": {"messages": {"timestamp": datetime.utcnow(), "user": query, "bot": response_text_to_save}},
+                "$set": {"user_agent": user_agent, "origin": origin, "traffic_type": traffic_type},
+            },
             upsert=True
         )
     except Exception as e:
